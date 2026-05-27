@@ -109,14 +109,16 @@ class BFSAppDashboard:
         self.algo_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_list.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # ĐĂNG KÝ THUẬT TOÁN GREEDY VÀO MENU
+        # CẬP NHẬT: Đăng ký thêm thuật toán 7 và 8 vào cuối danh sách
         algorithms = [
             "1. BFS (Tối ưu)",
             "2. BFS (Nhớ trễ)",
             "3. BFS (Đích trễ)",
             "4. Tìm kiếm Sâu dần (IDS)",
             "5. UCF (Lai - Cost là số ô sai)",
-            "6. Tham lam / Greedy (Manhattan)"
+            "6. Tham lam / Greedy (Manhattan)",
+            "7. A* (g=Số ô sai, h=Manhattan)",
+            "8. IDA* (g=Manhattan, h=Manhattan)"
         ]
         for algo in algorithms:
             self.algo_listbox.insert(tk.END, algo)
@@ -261,14 +263,16 @@ class BFSAppDashboard:
         self.dem_node = 0
         self.step_counter = 0
 
-        # TỪ ĐIỂN ĐIỀU PHỐI (KẾT NỐI THÊM GREEDY SEARCH)
+        # CẬP NHẬT: Thêm map điều phối cho thuật toán 7 và 8
         danh_sach_ham = {
             1: self.algo_v1,
             2: self.algo_v2,
             3: self.algo_v3,
             4: self.algo_ids,
             5: self.algo_ucf,
-            6: self.algo_greedy
+            6: self.algo_greedy,
+            7: self.algo_astar,
+            8: self.algo_idastar
         }
 
         ham_can_chay = danh_sach_ham.get(version)
@@ -276,13 +280,16 @@ class BFSAppDashboard:
             self.log("Lỗi: Thuật toán chưa được phát triển!")
             return
 
+        # CẬP NHẬT: Bổ sung nhãn hiển thị cho A* và IDA*
         algo_name = [
             "BFS Mã giả 1",
             "BFS Mã giả 2",
             "BFS Mã giả 3",
             "IDS (Tìm kiếm sâu dần)",
             "UCF (Lai - Cost là Số ô sai)",
-            "Greedy (Tham lam - Manhattan)"
+            "Greedy (Tham lam - Manhattan)",
+            "A* (g=Số ô sai, h=Manhattan)",
+            "IDA* (g=Manhattan, h=Manhattan)"
         ][version - 1]
 
         self.log(f"=== KHỞI ĐỘNG: {algo_name} ===\n")
@@ -311,6 +318,8 @@ class BFSAppDashboard:
                 stats_text += f"- Chi phí (g): {goal_node.path_cost}"
             elif version == 6:
                 stats_text += f"- Heuristic đích (h): {goal_node.h_cost}"
+            elif version in [7, 8] and hasattr(goal_node, 'f_cost'):
+                stats_text += f"- Tổng chi phí f đích: {goal_node.f_cost}"
 
         self.lbl_stats.config(text=stats_text)
 
@@ -632,6 +641,190 @@ class BFSAppDashboard:
 
             self.add_history_block(curr, visual_children)
         return None, popped, max_f
+
+    # 7. THUẬT TOÁN A* LAI (g = số ô sai, h = Manhattan)
+    def algo_astar(self):
+        root = Node(START_STATE, node_id=1)
+        root.name = self.get_name(root.state)
+        root.path_cost = 0  # g(Start) = 0
+        root.h_cost = self.calc_manhattan(root.state)
+        root.f_cost = root.path_cost + root.h_cost
+
+        frontier = [root]
+        frontier_dict = {START_STATE: root}
+        reached_dict = {}
+
+        counter = 2
+        popped = 0
+        max_f = 1
+
+        while frontier:
+            # Sắp xếp Frontier chọn f(n) nhỏ nhất theo mã giả slide
+            frontier.sort(key=lambda n: n.f_cost)
+            max_f = max(max_f, len(frontier))
+
+            curr = frontier.pop(0)
+            frontier_dict.pop(curr.state, None)
+            popped += 1
+
+            self.log(f"Xét Node {curr.name} (g={curr.path_cost}, h={curr.h_cost}, f={curr.f_cost}):")
+
+            if curr.state == GOAL_STATE:
+                self.add_history_block(curr, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
+                return curr, popped, max_f
+
+            reached_dict[curr.state] = curr
+            visual_children = []
+
+            for action, child_state in get_neighbors(curr.state):
+                h_cost = self.calc_manhattan(child_state)
+                step_cost = self.calc_misplaced_tiles(child_state)  # Yêu cầu riêng: cost = số ô sai
+                g_new = curr.path_cost + step_cost
+
+                # ii. NẾU m đã nằm trong REACHED:
+                if child_state in reached_dict:
+                    old_child = reached_dict[child_state]
+                    if g_new >= old_child.path_cost:
+                        self.log(f"  [{curr.name}, {action}] -> Node {old_child.name} đã thuộc Reached và tối ưu hơn (Bỏ qua)")
+                        visual_children.append((old_child, True))
+                        continue
+                    else:
+                        self.log(f"  [{curr.name}, {action}] -> Tối ưu lại g cho Node {old_child.name} trong Reached")
+                        reached_dict.pop(child_state)
+                        old_child.path_cost = g_new
+                        old_child.f_cost = g_new + h_cost
+                        old_child.parent = curr
+                        old_child.action = action
+                        old_child.depth = curr.depth + 1
+                        frontier.append(old_child)
+                        frontier_dict[child_state] = old_child
+                        visual_children.append((old_child, False))
+                        continue
+
+                # iii. NẾU m đã nằm trong FRONTIER:
+                elif child_state in frontier_dict:
+                    old_child = frontier_dict[child_state]
+                    if g_new < old_child.path_cost:
+                        self.log(f"  [{curr.name}, {action}] -> Cập nhật g tốt hơn cho Node {old_child.name} trong Frontier")
+                        old_child.path_cost = g_new
+                        old_child.f_cost = g_new + h_cost
+                        old_child.parent = curr
+                        old_child.action = action
+                        old_child.depth = curr.depth + 1
+                    else:
+                        self.log(f"  [{curr.name}, {action}] -> Node {old_child.name} đã thuộc Frontier với g tối ưu hơn (Bỏ qua)")
+                    visual_children.append((old_child, True))
+                    continue
+
+                # iv. NẾU m chưa có mặt trong FRONTIER và REACHED:
+                else:
+                    child = Node(child_state, curr, action, curr.depth + 1, counter)
+                    child.name = self.get_name(child.state)
+                    child.path_cost = g_new
+                    child.h_cost = h_cost
+                    child.f_cost = g_new + h_cost
+                    counter += 1
+
+                    self.log(f"  [{curr.name}, {action}] -> Node {child.name} (g={g_new}, h={h_cost}, f={child.f_cost})")
+                    frontier.append(child)
+                    frontier_dict[child_state] = child
+                    visual_children.append((child, False))
+
+            self.add_history_block(curr, visual_children)
+
+        return None, popped, max_f
+
+    # 8. THUẬT TOÁN IDA* (g = Manhattan cộng dồn, h = Manhattan)
+    def algo_idastar(self):
+        total_popped = 0
+        max_f = 1
+
+        root = Node(START_STATE, node_id=1)
+        root.name = self.get_name(root.state)
+        root.path_cost = 0  # g(A) = 0
+        root.h_cost = self.calc_manhattan(root.state)
+        root.f_cost = root.path_cost + root.h_cost
+
+        limit = root.f_cost
+
+        while True:
+            self.log(f"\n" + "=" * 30)
+            self.log(f" BẮT ĐẦU VÒNG LẶP IDA* VỚI GIỚI HẠN (LIMIT) = {limit}")
+            self.log("=" * 30)
+
+            self.next_limit = float('inf')
+            self.idastar_popped = 0
+            self.idastar_max_stack = 0
+
+            # Kích hoạt DFS tìm kiếm theo chiều sâu có giới hạn f-value
+            result = self.idastar_dfs(root, limit, {START_STATE})
+
+            total_popped += self.idastar_popped
+            max_f = max(max_f, self.idastar_max_stack)
+
+            if isinstance(result, Node):
+                return result, total_popped, max_f
+
+            if self.next_limit == float('inf'):
+                return None, total_popped, max_f
+
+            limit = self.next_limit
+
+            # Chốt chặn an toàn tránh treo UI
+            if total_popped > 1000:
+                self.log(f"\n Đạt giới hạn an toàn vòng lặp của hệ thống. Dừng thuật toán.")
+                return None, total_popped, max_f
+
+    def idastar_dfs(self, curr, limit, path_states):
+        self.idastar_popped += 1
+        self.idastar_max_stack = max(self.idastar_max_stack, len(path_states))
+
+        self.log(f"Xét Node {curr.name} (g={curr.path_cost}, h={curr.h_cost}, f={curr.f_cost}):")
+
+        if curr.state == GOAL_STATE:
+            return curr
+
+        if curr.f_cost > limit:
+            if curr.f_cost < self.next_limit:
+                self.next_limit = curr.f_cost
+            self.log(f"  -> CẮT (Cutoff) vì f={curr.f_cost} > Limit={limit}")
+            self.add_history_block(curr, [], f"Cutoff\n(f={curr.f_cost} > {limit})")
+            return "cutoff"
+
+        visual_children = []
+        children_nodes = []
+
+        for action, child_state in get_neighbors(curr.state):
+            h_cost = self.calc_manhattan(child_state)
+            g_cost = curr.path_cost + h_cost  # Yêu cầu riêng: g tính bằng Manhattan cộng dồn
+            f_cost = g_cost + h_cost
+
+            child = Node(child_state, curr, action, curr.depth + 1)
+            child.name = self.get_name(child.state)
+            child.path_cost = g_cost
+            child.h_cost = h_cost
+            child.f_cost = f_cost
+
+            is_cycle = child_state in path_states
+            visual_children.append((child, is_cycle))
+
+            if not is_cycle:
+                self.log(f"  [{curr.name}, {action}] -> Node {child.name} (g={g_cost}, h={h_cost}, f={f_cost})")
+                children_nodes.append(child)
+            else:
+                self.log(f"  [{curr.name}, {action}] -> Chu trình / Trùng lặp nhánh (Bỏ qua)")
+
+        self.add_history_block(curr, visual_children)
+
+        for child in children_nodes:
+            path_states.add(child.state)
+            res = self.idastar_dfs(child, limit, path_states)
+            path_states.remove(child.state)
+
+            if isinstance(res, Node):
+                return res
+
+        return "cutoff"
 
 
 if __name__ == "__main__":
