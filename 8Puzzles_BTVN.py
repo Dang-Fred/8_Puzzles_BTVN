@@ -101,7 +101,7 @@ class BFSAppDashboard:
         list_frame = tk.Frame(self.frame_mid)
         list_frame.pack(fill=tk.BOTH, padx=10, pady=5)
 
-        self.algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=8, selectbackground="#a9dfbf",
+        self.algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=10, selectbackground="#a9dfbf",
                                        selectforeground="black")
         scroll_list = tk.Scrollbar(list_frame, orient="vertical", command=self.algo_listbox.yview)
         self.algo_listbox.config(yscrollcommand=scroll_list.set)
@@ -109,7 +109,7 @@ class BFSAppDashboard:
         self.algo_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_list.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # CẬP NHẬT: Đăng ký thêm thuật toán 7 và 8 vào cuối danh sách
+        # CẬP NHẬT: Đăng ký thêm thuật toán 10 vào cuối danh sách
         algorithms = [
             "1. BFS (Tối ưu)",
             "2. BFS (Nhớ trễ)",
@@ -118,7 +118,9 @@ class BFSAppDashboard:
             "5. UCF (Lai - Cost là số ô sai)",
             "6. Tham lam / Greedy (Manhattan)",
             "7. A* (g=Số ô sai, h=Manhattan)",
-            "8. IDA* (g=Manhattan, h=Manhattan)"
+            "8. IDA* (g=Manhattan, h=Manhattan)",
+            "9. Simple Hill Climbing (Leo đồi cơ bản)",
+            "10. Steepest-Ascent Hill Climbing (Chọn Tốt Nhất)"
         ]
         for algo in algorithms:
             self.algo_listbox.insert(tk.END, algo)
@@ -205,7 +207,7 @@ class BFSAppDashboard:
         header_text = f"BƯỚC {self.step_counter}: XÉT NODE {curr_node.name} (Độ sâu: {curr_node.depth}"
         if algo_idx == 5 and hasattr(curr_node, 'path_cost'):
             header_text += f", g={curr_node.path_cost}"
-        elif algo_idx == 6 and hasattr(curr_node, 'h_cost'):
+        elif algo_idx in [6, 9, 10] and hasattr(curr_node, 'h_cost'):
             header_text += f", h={curr_node.h_cost}"
         header_text += ")"
 
@@ -263,7 +265,7 @@ class BFSAppDashboard:
         self.dem_node = 0
         self.step_counter = 0
 
-        # CẬP NHẬT: Thêm map điều phối cho thuật toán 7 và 8
+        # CẬP NHẬT: Thêm map điều phối cho thuật toán 10
         danh_sach_ham = {
             1: self.algo_v1,
             2: self.algo_v2,
@@ -272,7 +274,9 @@ class BFSAppDashboard:
             5: self.algo_ucf,
             6: self.algo_greedy,
             7: self.algo_astar,
-            8: self.algo_idastar
+            8: self.algo_idastar,
+            9: self.algo_hill_climbing,
+            10: self.algo_steepest_hill_climbing
         }
 
         ham_can_chay = danh_sach_ham.get(version)
@@ -280,7 +284,7 @@ class BFSAppDashboard:
             self.log("Lỗi: Thuật toán chưa được phát triển!")
             return
 
-        # CẬP NHẬT: Bổ sung nhãn hiển thị cho A* và IDA*
+        # CẬP NHẬT: Bổ sung nhãn hiển thị cho Thuật toán 10
         algo_name = [
             "BFS Mã giả 1",
             "BFS Mã giả 2",
@@ -289,7 +293,9 @@ class BFSAppDashboard:
             "UCF (Lai - Cost là Số ô sai)",
             "Greedy (Tham lam - Manhattan)",
             "A* (g=Số ô sai, h=Manhattan)",
-            "IDA* (g=Manhattan, h=Manhattan)"
+            "IDA* (g=Manhattan, h=Manhattan)",
+            "Simple Hill Climbing (Leo đồi cơ bản)",
+            "Steepest-Ascent Hill Climbing (Chọn Tốt Nhất)"
         ][version - 1]
 
         self.log(f"=== KHỞI ĐỘNG: {algo_name} ===\n")
@@ -316,7 +322,7 @@ class BFSAppDashboard:
             stats_text += f"- Độ sâu đích: {goal_node.depth} bước\n"
             if version == 5:
                 stats_text += f"- Chi phí (g): {goal_node.path_cost}"
-            elif version == 6:
+            elif version in [6, 9, 10]:
                 stats_text += f"- Heuristic đích (h): {goal_node.h_cost}"
             elif version in [7, 8] and hasattr(goal_node, 'f_cost'):
                 stats_text += f"- Tổng chi phí f đích: {goal_node.f_cost}"
@@ -327,111 +333,75 @@ class BFSAppDashboard:
             self.log(f"\n TÌM THẤY ĐÍCH TẠI NODE {goal_node.name}!")
         else:
             self.log("\n Không tìm thấy đích hoặc quá giới hạn!")
-    # CÁC THUẬT TOÁN TÌM KIẾM
 
-    # 6. GREEDY SEARCH - TÌM KIẾM THAM LAM
+    # CÁC THUẬT TOÁN TÌM KIẾM CŨ
     def algo_greedy(self):
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
-        # 1. Tính hàm đánh giá Start: h(Start)
         root.h_cost = self.calc_manhattan(root.state)
-
-        # 1. Khởi tạo tập Frontier = {Start}
         frontier = [root]
-        # Frontier_states để check điều kiện "m chưa có trong frontier"
         frontier_states = {START_STATE}
-
-        # 2. Khởi tạo tập reached = {}
         reached = set()
-
         counter = 2
         popped = 0
         max_f = 1
 
-        # 3. TRONG KHI (frontier không rỗng)
         while frontier:
-            # a. Chọn trạng thái n từ frontier có h(n) nhỏ nhất
             frontier.sort(key=lambda n: n.h_cost)
             max_f = max(max_f, len(frontier))
-
             curr = frontier.pop(0)
             frontier_states.remove(curr.state)
             popped += 1
-
             self.log(f"Xét Node {curr.name} (h={curr.h_cost}):")
-
-            # b. NẾU n == Goal: TRẢ VỀ "Thành công"
             if curr.state == GOAL_STATE:
                 self.add_history_block(curr, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
                 return curr, popped, max_f
-
-            # c. Loại bỏ n khỏi frontier (đã pop) và thêm n vào reached
             reached.add(curr.state)
-
             visual_children = []
 
-            # d. Với mỗi trạng thái m kề với n:
             for action, child_state in get_neighbors(curr.state):
-                # Kiểm tra xem m đã có trong frontier hoặc reached chưa
                 is_duplicate = child_state in reached or child_state in frontier_states
-
                 child = Node(child_state, curr, action, curr.depth + 1, counter)
                 child.name = self.get_name(child.state)
 
                 if not is_duplicate:
-                    # i. NẾU m chưa có trong cả frontier và reached:
-                    # Tính giá trị heuristic h(m)
                     child.h_cost = self.calc_manhattan(child_state)
                     counter += 1
-
                     self.log(f"  [{curr.name}, {action}] -> Node {child.name} (h={child.h_cost})")
-
-                    # Thêm m vào frontier
                     frontier.append(child)
                     frontier_states.add(child_state)
                     visual_children.append((child, False))
                 else:
-                    # ii. NẾU m đã có trong frontier hoặc reached: Bỏ qua m
                     self.log(f"  [{curr.name}, {action}] -> Node {child.name} (Đã có trong Reached/Frontier - Bỏ qua)")
                     visual_children.append((child, True))
-
             self.add_history_block(curr, visual_children)
-
-        # 4. TRẢ VỀ "Thất bại"
         return None, popped, max_f
-    # 5. UCF - UNIFORM COST SEARCH (Kiểu Lai)
+
     def algo_ucf(self):
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
         root.path_cost = 0
-
         if root.state == GOAL_STATE: return root, 0, 1
-
         frontier = [root]
         reached = {START_STATE: 0}
-
         counter = 2
         popped = 0
         max_f = 1
 
         while frontier:
             frontier.sort(key=lambda n: n.path_cost)
-
             max_f = max(max_f, len(frontier))
             curr = frontier.pop(0)
             popped += 1
-
             self.log(f"Xét Node {curr.name} (g={curr.path_cost}):")
             visual_children = []
 
             for action, child_state in get_neighbors(curr.state):
                 h_cost = self.calc_misplaced_tiles(child_state)
                 g_cost = curr.path_cost + h_cost
-
                 is_duplicate = False
                 if child_state in reached and reached[child_state] <= g_cost:
                     is_duplicate = True
-
                 child = Node(child_state, curr, action, curr.depth + 1, counter)
                 child.name = self.get_name(child.state)
                 child.path_cost = g_cost
@@ -440,43 +410,30 @@ class BFSAppDashboard:
                 if not is_duplicate:
                     reached[child_state] = g_cost
                     counter += 1
-                    self.log(
-                        f"  [{curr.name}, {action}] -> Node {child.name} (g={curr.path_cost} + {h_cost} = {g_cost})")
-
+                    self.log(f"  [{curr.name}, {action}] -> Node {child.name} (g={curr.path_cost} + {h_cost} = {g_cost})")
                     if child_state == GOAL_STATE:
                         self.add_history_block(curr, visual_children)
                         return child, popped, max_f
                     frontier.append(child)
                 else:
                     self.log(f"  [{curr.name}, {action}] -> Trùng lặp/Cost cao (Bỏ qua)")
-
             self.add_history_block(curr, visual_children)
-
         return None, popped, max_f
 
-    # 4. IDS - TÌM KIẾM SÂU DẦN
     def algo_ids(self):
         total_popped = 0
         max_f = 1
-
         depth_limit = 0
         while True:
             self.log(f"\n" + "=" * 30)
             self.log(f" BẮT ĐẦU VÒNG LẶP IDS VỚI ĐỘ SÂU (LIMIT) = {depth_limit}")
             self.log("=" * 30)
-
             result, popped, current_max_f = self.dls(START_STATE, depth_limit)
-
             total_popped += popped
             max_f = max(max_f, current_max_f)
-
-            if type(result) == Node:
-                return result, total_popped, max_f
-            elif result == "failure":
-                return None, total_popped, max_f
-
+            if type(result) == Node: return result, total_popped, max_f
+            elif result == "failure": return None, total_popped, max_f
             depth_limit += 1
-
             if depth_limit > 10:
                 self.log(f"\n Đạt giới hạn an toàn UI (depth > 10). Dừng lại.")
                 return None, total_popped, max_f
@@ -488,27 +445,21 @@ class BFSAppDashboard:
         result = "failure"
         popped = 0
         max_f = 1
-
         while frontier:
             max_f = max(max_f, len(frontier))
             curr = frontier.pop()
             popped += 1
-
             self.log(f"Xét Node {curr.name} (Độ sâu: {curr.depth}):")
-
             if curr.state == GOAL_STATE: return curr, popped, max_f
-
             if curr.depth >= limit:
                 result = "cutoff"
                 self.log(f"  -> CẮT (Cutoff) vì đã đạt độ sâu giới hạn {limit}")
                 self.add_history_block(curr, [], "Cutoff\n(Giới hạn độ sâu)")
                 continue
-
             if self.is_cycle(curr):
                 self.log(f"  -> BỎ QUA vì tạo thành Chu trình (Trùng lặp nhánh)")
                 self.add_history_block(curr, [], "Bỏ qua\n(Trùng chu trình)")
                 continue
-
             visual_children = []
             for action, child_state in get_neighbors(curr.state):
                 child = Node(child_state, curr, action, curr.depth + 1)
@@ -516,7 +467,6 @@ class BFSAppDashboard:
                 visual_children.append((child, False))
                 self.log(f"  [{curr.name}, {action}, Sâu:{child.depth}] = Node {child.name}")
                 frontier.append(child)
-
             self.add_history_block(curr, visual_children)
         return result, popped, max_f
 
@@ -526,7 +476,7 @@ class BFSAppDashboard:
             if curr.state == node.state: return True
             curr = curr.parent
         return False
-    # 1. BFS MÃ GIẢ 1
+
     def algo_v1(self):
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
@@ -536,20 +486,17 @@ class BFSAppDashboard:
         counter = 2
         popped = 0
         max_f = 1
-
         while frontier:
             max_f = max(max_f, len(frontier))
             curr = frontier.popleft()
             popped += 1
             self.log(f"Xét Node {curr.name}:")
             visual_children = []
-
             for action, child_state in get_neighbors(curr.state):
                 is_duplicate = child_state in reached
                 child = Node(child_state, curr, action, curr.depth + 1, counter)
                 child.name = self.get_name(child.state)
                 visual_children.append((child, is_duplicate))
-
                 if not is_duplicate:
                     reached.add(child_state)
                     counter += 1
@@ -560,11 +507,9 @@ class BFSAppDashboard:
                     frontier.append(child)
                 else:
                     self.log(f"  [{curr.name}, {action}] -> Trùng lặp (Bỏ qua)")
-
             self.add_history_block(curr, visual_children)
         return None, popped, max_f
 
-    # 2. BFS MÃ GIẢ 2
     def algo_v2(self):
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
@@ -575,7 +520,6 @@ class BFSAppDashboard:
         counter = 2
         popped = 0
         max_f = 1
-
         while frontier:
             max_f = max(max_f, len(frontier))
             curr = frontier.popleft()
@@ -584,13 +528,11 @@ class BFSAppDashboard:
             popped += 1
             self.log(f"Xét Node {curr.name}:")
             visual_children = []
-
             for action, child_state in get_neighbors(curr.state):
                 is_duplicate = child_state in explored or child_state in frontier_set
                 child = Node(child_state, curr, action, curr.depth + 1, counter)
                 child.name = self.get_name(child.state)
                 visual_children.append((child, is_duplicate))
-
                 if not is_duplicate:
                     counter += 1
                     self.log(f"  [{curr.name}, {action}, {child.depth}] = Node {child.name}")
@@ -601,10 +543,9 @@ class BFSAppDashboard:
                     frontier_set.add(child_state)
                 else:
                     self.log(f"  [{curr.name}, {action}] -> Trùng lặp (Bỏ qua)")
-
             self.add_history_block(curr, visual_children)
         return None, popped, max_f
-    # 3. BFS MÃ GIẢ 3
+
     def algo_v3(self):
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
@@ -614,7 +555,6 @@ class BFSAppDashboard:
         counter = 2
         popped = 0
         max_f = 1
-
         while frontier:
             max_f = max(max_f, len(frontier))
             curr = frontier.popleft()
@@ -624,13 +564,11 @@ class BFSAppDashboard:
             if curr.state == GOAL_STATE: return curr, popped, max_f
             self.log(f"Xét Node {curr.name}:")
             visual_children = []
-
             for action, child_state in get_neighbors(curr.state):
                 is_duplicate = child_state in reached or child_state in frontier_set
                 child = Node(child_state, curr, action, curr.depth + 1, counter)
                 child.name = self.get_name(child.state)
                 visual_children.append((child, is_duplicate))
-
                 if not is_duplicate:
                     counter += 1
                     self.log(f"  [{curr.name}, {action}, {child.depth}] = Node {child.name}")
@@ -638,50 +576,42 @@ class BFSAppDashboard:
                     frontier_set.add(child_state)
                 else:
                     self.log(f"  [{curr.name}, {action}] -> Trùng lặp (Bỏ qua)")
-
             self.add_history_block(curr, visual_children)
         return None, popped, max_f
 
-    # 7. THUẬT TOÁN A* LAI (g = số ô sai, h = Manhattan)
     def algo_astar(self):
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
-        root.path_cost = 0  # g(Start) = 0
+        root.path_cost = 0
         root.h_cost = self.calc_manhattan(root.state)
         root.f_cost = root.path_cost + root.h_cost
 
         frontier = [root]
         frontier_dict = {START_STATE: root}
         reached_dict = {}
-
         counter = 2
         popped = 0
         max_f = 1
 
         while frontier:
-            # Sắp xếp Frontier chọn f(n) nhỏ nhất theo mã giả slide
             frontier.sort(key=lambda n: n.f_cost)
             max_f = max(max_f, len(frontier))
-
             curr = frontier.pop(0)
             frontier_dict.pop(curr.state, None)
             popped += 1
-
             self.log(f"Xét Node {curr.name} (g={curr.path_cost}, h={curr.h_cost}, f={curr.f_cost}):")
 
             if curr.state == GOAL_STATE:
                 self.add_history_block(curr, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
                 return curr, popped, max_f
-
             reached_dict[curr.state] = curr
             visual_children = []
 
             for action, child_state in get_neighbors(curr.state):
                 h_cost = self.calc_manhattan(child_state)
-                step_cost = self.calc_misplaced_tiles(child_state)  # Yêu cầu riêng: cost = số ô sai
+                step_cost = self.calc_misplaced_tiles(child_state)
                 g_new = curr.path_cost + step_cost
 
-                # ii. NẾU m đã nằm trong REACHED:
                 if child_state in reached_dict:
                     old_child = reached_dict[child_state]
                     if g_new >= old_child.path_cost:
@@ -701,7 +631,6 @@ class BFSAppDashboard:
                         visual_children.append((old_child, False))
                         continue
 
-                # iii. NẾU m đã nằm trong FRONTIER:
                 elif child_state in frontier_dict:
                     old_child = frontier_dict[child_state]
                     if g_new < old_child.path_cost:
@@ -715,8 +644,6 @@ class BFSAppDashboard:
                         self.log(f"  [{curr.name}, {action}] -> Node {old_child.name} đã thuộc Frontier với g tối ưu hơn (Bỏ qua)")
                     visual_children.append((old_child, True))
                     continue
-
-                # iv. NẾU m chưa có mặt trong FRONTIER và REACHED:
                 else:
                     child = Node(child_state, curr, action, curr.depth + 1, counter)
                     child.name = self.get_name(child.state)
@@ -724,53 +651,39 @@ class BFSAppDashboard:
                     child.h_cost = h_cost
                     child.f_cost = g_new + h_cost
                     counter += 1
-
                     self.log(f"  [{curr.name}, {action}] -> Node {child.name} (g={g_new}, h={h_cost}, f={child.f_cost})")
                     frontier.append(child)
                     frontier_dict[child_state] = child
                     visual_children.append((child, False))
 
             self.add_history_block(curr, visual_children)
-
         return None, popped, max_f
 
-    # 8. THUẬT TOÁN IDA* (g = Manhattan cộng dồn, h = Manhattan)
     def algo_idastar(self):
         total_popped = 0
         max_f = 1
-
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
-        root.path_cost = 0  # g(A) = 0
+        root.path_cost = 0
         root.h_cost = self.calc_manhattan(root.state)
         root.f_cost = root.path_cost + root.h_cost
-
         limit = root.f_cost
 
         while True:
             self.log(f"\n" + "=" * 30)
             self.log(f" BẮT ĐẦU VÒNG LẶP IDA* VỚI GIỚI HẠN (LIMIT) = {limit}")
             self.log("=" * 30)
-
             self.next_limit = float('inf')
             self.idastar_popped = 0
             self.idastar_max_stack = 0
-
-            # Kích hoạt DFS tìm kiếm theo chiều sâu có giới hạn f-value
             result = self.idastar_dfs(root, limit, {START_STATE})
 
             total_popped += self.idastar_popped
             max_f = max(max_f, self.idastar_max_stack)
 
-            if isinstance(result, Node):
-                return result, total_popped, max_f
-
-            if self.next_limit == float('inf'):
-                return None, total_popped, max_f
-
+            if isinstance(result, Node): return result, total_popped, max_f
+            if self.next_limit == float('inf'): return None, total_popped, max_f
             limit = self.next_limit
-
-            # Chốt chặn an toàn tránh treo UI
             if total_popped > 1000:
                 self.log(f"\n Đạt giới hạn an toàn vòng lặp của hệ thống. Dừng thuật toán.")
                 return None, total_popped, max_f
@@ -778,15 +691,11 @@ class BFSAppDashboard:
     def idastar_dfs(self, curr, limit, path_states):
         self.idastar_popped += 1
         self.idastar_max_stack = max(self.idastar_max_stack, len(path_states))
-
         self.log(f"Xét Node {curr.name} (g={curr.path_cost}, h={curr.h_cost}, f={curr.f_cost}):")
 
-        if curr.state == GOAL_STATE:
-            return curr
-
+        if curr.state == GOAL_STATE: return curr
         if curr.f_cost > limit:
-            if curr.f_cost < self.next_limit:
-                self.next_limit = curr.f_cost
+            if curr.f_cost < self.next_limit: self.next_limit = curr.f_cost
             self.log(f"  -> CẮT (Cutoff) vì f={curr.f_cost} > Limit={limit}")
             self.add_history_block(curr, [], f"Cutoff\n(f={curr.f_cost} > {limit})")
             return "cutoff"
@@ -796,15 +705,13 @@ class BFSAppDashboard:
 
         for action, child_state in get_neighbors(curr.state):
             h_cost = self.calc_manhattan(child_state)
-            g_cost = curr.path_cost + h_cost  # Yêu cầu riêng: g tính bằng Manhattan cộng dồn
+            g_cost = curr.path_cost + h_cost
             f_cost = g_cost + h_cost
-
             child = Node(child_state, curr, action, curr.depth + 1)
             child.name = self.get_name(child.state)
             child.path_cost = g_cost
             child.h_cost = h_cost
             child.f_cost = f_cost
-
             is_cycle = child_state in path_states
             visual_children.append((child, is_cycle))
 
@@ -820,11 +727,121 @@ class BFSAppDashboard:
             path_states.add(child.state)
             res = self.idastar_dfs(child, limit, path_states)
             path_states.remove(child.state)
-
-            if isinstance(res, Node):
-                return res
-
+            if isinstance(res, Node): return res
         return "cutoff"
+
+    def algo_hill_climbing(self):
+        root = Node(START_STATE, node_id=1)
+        root.name = self.get_name(root.state)
+        root.h_cost = self.calc_misplaced_tiles(root.state)
+
+        current_node = root
+        counter = 2
+        popped = 0
+        max_f = 1
+
+        while True:
+            popped += 1
+            self.log(f"\nXét Current_State: Node {current_node.name} (h={current_node.h_cost}):")
+
+            if current_node.state == GOAL_STATE:
+                self.add_history_block(current_node, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
+                return current_node, popped, max_f
+
+            idx = current_node.state.index(0)
+            row, col = idx // 3, idx % 3
+            moves_lrud = []
+            if col > 0: moves_lrud.append(("TRÁI", idx - 1))
+            if col < 2: moves_lrud.append(("PHẢI", idx + 1))
+            if row > 0: moves_lrud.append(("LÊN", idx - 3))
+            if row < 2: moves_lrud.append(("XUỐNG", idx + 3))
+
+            found_better = False
+            visual_children = []
+            evaluating_node = current_node
+
+            for action, new_idx in moves_lrud:
+                s_list = list(evaluating_node.state)
+                s_list[idx], s_list[new_idx] = s_list[new_idx], s_list[idx]
+                child_state = tuple(s_list)
+
+                h_cost = self.calc_misplaced_tiles(child_state)
+                child = Node(child_state, evaluating_node, action, evaluating_node.depth + 1, counter)
+                child.name = self.get_name(child.state)
+                child.h_cost = h_cost
+                counter += 1
+
+                visual_children.append((child, False))
+                self.log(f"  Sinh lân cận: [{evaluating_node.name}, {action}] -> Node {child.name} (h={h_cost})")
+
+                if h_cost < evaluating_node.h_cost:
+                    self.log(f"  => TỐT HƠN! (h={h_cost} < {evaluating_node.h_cost}). Trở thành Current_State mới.")
+                    current_node = child
+                    found_better = True
+                    break
+
+            self.add_history_block(evaluating_node, visual_children)
+
+            if not found_better:
+                self.log(f"  => KHÔNG CÓ lân cận nào tốt hơn (h đều >= {evaluating_node.h_cost}).")
+                self.log(f"  => ĐẠT CỰC ĐẠI CỤC BỘ (Local Maximum). DỪNG THUẬT TOÁN.")
+                self.add_history_block(current_node, [], "Cực đại cục bộ\n(Thất bại)")
+                return None, popped, max_f
+
+    # -------------------------------------------------------------
+    # BỔ SUNG MỚI (10): STEEPEST-ASCENT HILL CLIMBING
+    # -------------------------------------------------------------
+    def algo_steepest_hill_climbing(self):
+        root = Node(START_STATE, node_id=1)
+        root.name = self.get_name(root.state)
+        # Sử dụng Khoảng cách Manhattan để Heuristic đánh giá sâu sát hơn
+        root.h_cost = self.calc_manhattan(root.state)
+
+        current_node = root
+        counter = 2
+        popped = 0
+        max_f = 1  # Hill Climbing luôn chỉ giữ 1 trạng thái hiện tại
+
+        while True:
+            popped += 1
+            self.log(f"\nXét Current_State: Node {current_node.name} (h={current_node.h_cost}):")
+
+            if current_node.state == GOAL_STATE:
+                self.add_history_block(current_node, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
+                return current_node, popped, max_f
+
+            best_next_node = None
+            min_h = float('inf')
+            visual_children = []
+
+            # 1. Sinh TOÀN BỘ các trạng thái lân cận
+            for action, child_state in get_neighbors(current_node.state):
+                h_cost = self.calc_manhattan(child_state)
+                child = Node(child_state, current_node, action, current_node.depth + 1, counter)
+                child.name = self.get_name(child.state)
+                child.h_cost = h_cost
+                counter += 1
+
+                visual_children.append((child, False))
+                self.log(f"  Sinh lân cận: [{current_node.name}, {action}] -> Node {child.name} (h={h_cost})")
+
+                # 2. Tìm node có Heuristic nhỏ nhất (tốt nhất)
+                if h_cost < min_h:
+                    min_h = h_cost
+                    best_next_node = child
+
+            # Hiển thị tất cả lân cận vừa sinh lên UI
+            self.add_history_block(current_node, visual_children)
+
+            # 3. So sánh Node tốt nhất vừa tìm được với Node hiện tại
+            if best_next_node and best_next_node.h_cost < current_node.h_cost:
+                self.log(f"  => CHỌN TỐT NHẤT: Node {best_next_node.name} (h={best_next_node.h_cost} < {current_node.h_cost}). Cập nhật Current_State.")
+                current_node = best_next_node
+            else:
+                self.log(f"  => KHÔNG CÓ lân cận nào TỐT HƠN trạng thái hiện tại (min_h = {min_h} >= {current_node.h_cost}).")
+                self.log(f"  => ĐẠT CỰC ĐẠI CỤC BỘ (Local Maximum). DỪNG THUẬT TOÁN.")
+                self.add_history_block(current_node, [], "Cực đại cục bộ\n(Thất bại)")
+                return None, popped, max_f
 
 
 if __name__ == "__main__":
