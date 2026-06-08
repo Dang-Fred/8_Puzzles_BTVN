@@ -8,7 +8,7 @@ START_STATE = (2, 8, 3, 1, 6, 4, 7, 0, 5)
 GOAL_STATE = (2, 3, 4, 1, 8, 0, 7, 6, 5)
 
 
-# Lop node va ham sinh con
+# LỚP NODE & HÀM SINH CON
 class Node:
     def __init__(self, state, parent=None, action="", depth=0, node_id=1, path_cost=0):
         self.state = state
@@ -24,10 +24,10 @@ def get_neighbors(state):
     idx = state.index(0)
     row, col = idx // 3, idx % 3
     moves = []
-    if row > 0: moves.append(("Lên", idx - 3))
-    if row < 2: moves.append(("Xuống", idx + 3))
-    if col > 0: moves.append(("Trái", idx - 1))
-    if col < 2: moves.append(("Phải", idx + 1))
+    if row > 0: moves.append(("LÊN", idx - 3))
+    if row < 2: moves.append(("XUỐNG", idx + 3))
+    if col > 0: moves.append(("TRÁI", idx - 1))
+    if col < 2: moves.append(("PHẢI", idx + 1))
 
     neighbors = []
     for action, new_idx in moves:
@@ -37,7 +37,7 @@ def get_neighbors(state):
     return neighbors
 
 
-# Giao dien UI
+# GIAO DIỆN (UI) - LAYOUT 3 CỘT
 class app_puzzle:
     def __init__(self, root):
         self.root = root
@@ -49,18 +49,22 @@ class app_puzzle:
         self.root.columnconfigure(2, weight=3)
         self.root.rowconfigure(0, weight=1)
 
-        # CỘT 1: Lich su truc quan hoa
+        # Trạng thái để lưu chế độ nâng cao đang chọn (14, 15, 16)
+        self.current_advanced_mode = 14
+
+        # GIAO DIỆN MODE 1
+
         self.frame_left = tk.Frame(root, bg="white", bd=2, relief=tk.RIDGE)
         self.frame_left.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
         top_left = tk.Frame(self.frame_left, bg="white")
         top_left.pack(pady=5)
-        tk.Label(top_left, text="CẤU HÌNH BÀI TOÁN", font=("Arial", 12, "bold"), bg="white").pack(pady=2)
+        tk.Label(top_left, text="CẤU HÌNH BÀI TOÁN (MODE 1)", font=("Arial", 12, "bold"), bg="white").pack(pady=2)
 
         boards_container = tk.Frame(top_left, bg="white")
         boards_container.pack()
-        self.draw_board(boards_container, "Bắt đầu", START_STATE, "lightgray").pack(side=tk.LEFT, padx=15)
-        self.draw_board(boards_container, "Đích đến", GOAL_STATE, "yellow").pack(side=tk.LEFT, padx=15)
+        self.draw_board(boards_container, "BẮT ĐẦU", START_STATE, "lightgray").pack(side=tk.LEFT, padx=15)
+        self.draw_board(boards_container, "ĐÍCH ĐẾN", GOAL_STATE, "yellow").pack(side=tk.LEFT, padx=15)
 
         tk.Frame(self.frame_left, height=2, bg="black").pack(fill=tk.X, padx=10, pady=5)
         tk.Label(self.frame_left, text="LỊCH SỬ DUYỆT TRẠNG THÁI", font=("Arial", 10, "bold"), bg="white",
@@ -94,16 +98,15 @@ class app_puzzle:
         self.canvas_left.bind('<Enter>', lambda _: self.canvas_left.bind_all("<MouseWheel>", _on_mousewheel))
         self.canvas_left.bind('<Leave>', lambda _: self.canvas_left.unbind_all("<MouseWheel>"))
 
-        # CỘT 2: dieu khien va liet ke bang listbox
         self.frame_mid = tk.Frame(root, bg="#f0f0f0", bd=2, relief=tk.RIDGE)
         self.frame_mid.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
-        tk.Label(self.frame_mid, text="Menu thuật toán", font=("Arial", 12, "bold"), bg="#f0f0f0").pack(pady=15)
+        tk.Label(self.frame_mid, text="MENU THUẬT TOÁN", font=("Arial", 12, "bold"), bg="#f0f0f0").pack(pady=15)
 
         list_frame = tk.Frame(self.frame_mid)
         list_frame.pack(fill=tk.BOTH, padx=10, pady=5)
 
-        self.algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=13, selectbackground="#a9dfbf",
+        self.algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=17, selectbackground="#a9dfbf",
                                        selectforeground="black")
         scroll_list = tk.Scrollbar(list_frame, orient="vertical", command=self.algo_listbox.yview)
         self.algo_listbox.config(yscrollcommand=scroll_list.set)
@@ -111,26 +114,31 @@ class app_puzzle:
         self.algo_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_list.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # CẬP NHẬT MENU: Thêm thuật toán 15, 16
         algorithms = [
             "1. BFS (Tối ưu)",
             "2. BFS (Nhớ trễ)",
             "3. BFS (Đích trễ)",
             "4. Tìm kiếm Sâu dần (IDS)",
-            "5. UCF (số ô sai)",
-            "6. Tham lam(Manhattan)",
+            "5. UCF (Lai - Cost là số ô sai)",
+            "6. Tham lam / Greedy (Manhattan)",
             "7. A* (g=Số ô sai, h=Manhattan)",
             "8. IDA* (g=Manhattan, h=Manhattan)",
             "9. Simple Hill Climbing (Leo đồi cơ bản)",
             "10. Steepest-Ascent Hill Climbing (Chọn Tốt Nhất)",
             "11. Stochastic Hill Climbing (Leo đồi Ngẫu nhiên)",
             "12. Random Restart Hill Climbing (Lặp lại)",
-            "13. Local Beam Search (Mã giả chuẩn k=2)"
+            "13. Local Beam Search (Mã giả chuẩn k=2)",
+            "---------------------------------------",
+            "14. [MODE MỚI] Đa Start - Cố định Đích",
+            "15. [MODE MỚI] Đa Đích - Cố định Start",
+            "16. [MODE MỚI] Random cả Start và Đích"
         ]
         for algo in algorithms:
             self.algo_listbox.insert(tk.END, algo)
         self.algo_listbox.selection_set(0)
 
-        tk.Button(self.frame_mid, text=" CHẠY THUẬT TOÁN", bg="#4CAF50", fg="white", font=("Arial", 11, "bold"),
+        tk.Button(self.frame_mid, text="▶ CHẠY THUẬT TOÁN", bg="#4CAF50", fg="white", font=("Arial", 11, "bold"),
                   height=2, command=self.on_run_click).pack(fill=tk.X, padx=10, pady=15)
 
         tk.Frame(self.frame_mid, height=2, bg="gray").pack(fill=tk.X, padx=10, pady=10)
@@ -140,11 +148,10 @@ class app_puzzle:
                                   font=("Consolas", 10), bg="#f0f0f0", justify=tk.LEFT)
         self.lbl_stats.pack(padx=10, pady=5, anchor="w")
 
-        # CỘT 3: Lich su chay
         self.frame_right = tk.Frame(root, bg="white", bd=2, relief=tk.RIDGE)
         self.frame_right.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
 
-        tk.Label(self.frame_right, text="LỊCH SỬ CHẠY ", font=("Arial", 12, "bold"), bg="white").pack(
+        tk.Label(self.frame_right, text="NHẬT KÝ CHẠY (TRACE LOG)", font=("Arial", 12, "bold"), bg="white").pack(
             pady=10)
         self.txt_log = scrolledtext.ScrolledText(self.frame_right, font=("Consolas", 11), bg="#1e1e1e", fg="#4af626")
         self.txt_log.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
@@ -153,7 +160,313 @@ class app_puzzle:
         self.dem_node = 0
         self.step_counter = 0
 
-    # Cac ham ve giao dien va chuc nang
+        # Khởi tạo Giao diện Mode 2 (ẩn đi lúc đầu)
+        self.build_mode2_ui()
+
+    # XÂY DỰNG GIAO DIỆN MODE 2 ĐA NĂNG
+    def build_mode2_ui(self):
+        self.frame_m2_left = tk.Frame(self.root, bg="#f9ebea", bd=2, relief=tk.RIDGE)
+        self.frame_m2_mid = tk.Frame(self.root, bg="#e8f8f5", bd=2, relief=tk.RIDGE)
+        self.frame_m2_right = tk.Frame(self.root, bg="#fef9e7", bd=2, relief=tk.RIDGE)
+
+        # -- CỘT 1 (Left) --
+        top_left = tk.Frame(self.frame_m2_left, bg="#f9ebea")
+        top_left.pack(pady=5, fill=tk.X)
+
+        self.m2_title_label = tk.Label(top_left, text="CẤU HÌNH BÀI TOÁN (MODE 2)", font=("Arial", 12, "bold"),
+                                       bg="#f9ebea")
+        self.m2_title_label.pack(pady=2)
+
+        self.btn_m2_generate = tk.Button(top_left, text=" Tạo Random (Dựa trên Mode)", bg="#3498db", fg="white",
+                                         font=("Arial", 10, "bold"), command=self.generate_m2_random_starts)
+        self.btn_m2_generate.pack(pady=5)
+
+        # Vùng chứa các board
+        self.m2_boards_container = tk.Frame(top_left, bg="#f9ebea")
+        self.m2_boards_container.pack()
+
+        self.m2_starts = []
+        self.m2_goals = []
+
+        tk.Frame(self.frame_m2_left, height=2, bg="black").pack(fill=tk.X, padx=10, pady=5)
+        tk.Label(self.frame_m2_left, text="LỊCH SỬ DUYỆT TRẠNG THÁI TỔNG HỢP", font=("Arial", 10, "bold"), bg="#f9ebea",
+                 fg="blue").pack(pady=2)
+
+        history_container = tk.Frame(self.frame_m2_left, bg="white")
+        history_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        history_container.rowconfigure(0, weight=1)
+        history_container.columnconfigure(0, weight=1)
+
+        self.m2_canvas_left = tk.Canvas(history_container, bg="white")
+        scrollbar_y = tk.Scrollbar(history_container, orient="vertical", command=self.m2_canvas_left.yview)
+        scrollbar_x = tk.Scrollbar(history_container, orient="horizontal", command=self.m2_canvas_left.xview)
+        self.m2_scrollable_history = tk.Frame(self.m2_canvas_left, bg="white")
+
+        self.m2_scrollable_history.bind("<Configure>", lambda e: self.m2_canvas_left.configure(
+            scrollregion=self.m2_canvas_left.bbox("all")))
+        self.m2_canvas_left.create_window((0, 0), window=self.m2_scrollable_history, anchor="nw")
+        self.m2_canvas_left.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+
+        self.m2_canvas_left.grid(row=0, column=0, sticky="nsew")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
+
+        # -- CỘT 2 (Mid) --
+        tk.Button(self.frame_m2_mid, text=" QUAY LẠI GIAO DIỆN MODE 1", bg="#e74c3c", fg="white",
+                  font=("Arial", 10, "bold"), command=self.switch_to_mode1).pack(fill=tk.X, padx=10, pady=10)
+
+        tk.Frame(self.frame_m2_mid, height=2, bg="gray").pack(fill=tk.X, padx=10, pady=5)
+
+        tk.Label(self.frame_m2_mid, text="CHỌN THUẬT TOÁN ĐỂ CHẠY HÀNG LOẠT", font=("Arial", 10, "bold"),
+                 bg="#e8f8f5").pack(
+            pady=5)
+
+        list_frame = tk.Frame(self.frame_m2_mid)
+        list_frame.pack(fill=tk.BOTH, padx=10, pady=5)
+        self.m2_algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=13, selectbackground="#a9dfbf",
+                                          selectforeground="black")
+        scroll_list = tk.Scrollbar(list_frame, orient="vertical", command=self.m2_algo_listbox.yview)
+        self.m2_algo_listbox.config(yscrollcommand=scroll_list.set)
+        self.m2_algo_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll_list.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for i in range(13):
+            self.m2_algo_listbox.insert(tk.END, self.algo_listbox.get(i))
+        self.m2_algo_listbox.selection_set(0)
+
+        tk.Button(self.frame_m2_mid, text="▶ CHẠY BỘ TEST CASE", bg="#4CAF50", fg="white",
+                  font=("Arial", 10, "bold"), height=2, command=self.run_mode2_algo).pack(fill=tk.X, padx=10, pady=15)
+
+        tk.Frame(self.frame_m2_mid, height=2, bg="gray").pack(fill=tk.X, padx=10, pady=10)
+        tk.Label(self.frame_m2_mid, text="BẢNG ĐÁNH GIÁ CHUNG", font=("Arial", 11, "bold"), bg="#e8f8f5").pack(pady=5)
+        self.m2_lbl_stats = tk.Label(self.frame_m2_mid, text="Chưa có dữ liệu.", font=("Consolas", 10), bg="#e8f8f5",
+                                     justify=tk.LEFT)
+        self.m2_lbl_stats.pack(padx=10, pady=5, anchor="w")
+
+        # -- CỘT 3 (Right) --
+        tk.Label(self.frame_m2_right, text="NHẬT KÝ CHẠY TỔNG HỢP", font=("Arial", 12, "bold"), bg="#fef9e7").pack(
+            pady=10)
+        self.m2_txt_log = scrolledtext.ScrolledText(self.frame_m2_right, font=("Consolas", 11), bg="#1e1e1e",
+                                                    fg="#f1c40f")
+        self.m2_txt_log.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+    # Chuyển đổi linh hoạt UI
+    def switch_to_mode2(self, mode_idx):
+        self.current_advanced_mode = mode_idx
+
+        # Cập nhật thông báo tùy thuộc vào lựa chọn
+        if mode_idx == 15:  # Random 14 is +1 index in the list, so index 14 -> version 15
+            self.m2_title_label.config(text="CẤU HÌNH: ĐA START - CỐ ĐỊNH ĐÍCH (Thuật toán 14)")
+            self.btn_m2_generate.config(text=" Xáo trộn tạo 3 Start ngẫu nhiên")
+        elif mode_idx == 16:
+            self.m2_title_label.config(text="CẤU HÌNH: ĐA ĐÍCH - CỐ ĐỊNH START (Thuật toán 15)")
+            self.btn_m2_generate.config(text=" Xáo trộn tạo 3 Đích ngẫu nhiên")
+        elif mode_idx == 17:
+            self.m2_title_label.config(text="CẤU HÌNH: RANDOM CẢ START & ĐÍCH (Thuật toán 16)")
+            self.btn_m2_generate.config(text=" Sinh 3 cặp Start-Goal ngẫu nhiên")
+
+        self.frame_left.grid_remove()
+        self.frame_mid.grid_remove()
+        self.frame_right.grid_remove()
+
+        self.frame_m2_left.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.frame_m2_mid.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        self.frame_m2_right.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+
+        # Xóa các board trên màn hình chờ người dùng tự bấm tạo
+        for widget in self.m2_boards_container.winfo_children():
+            widget.destroy()
+        self.m2_starts.clear()
+        self.m2_goals.clear()
+
+    def switch_to_mode1(self):
+        self.frame_m2_left.grid_remove()
+        self.frame_m2_mid.grid_remove()
+        self.frame_m2_right.grid_remove()
+
+        self.frame_left.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.frame_mid.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        self.frame_right.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+
+    # Hàm xáo trộn dùng chung
+    def scramble_state(self, state, steps=30):
+        st = list(state)
+        for _ in range(steps):
+            idx = st.index(0)
+            row, col = idx // 3, idx % 3
+            moves = []
+            if row > 0: moves.append(idx - 3)
+            if row < 2: moves.append(idx + 3)
+            if col > 0: moves.append(idx - 1)
+            if col < 2: moves.append(idx + 1)
+            new_idx = random.choice(moves)
+            st[idx], st[new_idx] = st[new_idx], st[idx]
+        return tuple(st)
+
+    def generate_m2_random_starts(self):
+        for widget in self.m2_boards_container.winfo_children():
+            widget.destroy()
+
+        self.m2_starts.clear()
+        self.m2_goals.clear()
+
+        # Thuật toán 14: Đa Start, 1 Goal (Bảo đảm giải được bằng cách đi ngược từ Goal)
+        if self.current_advanced_mode == 15:
+            self.m2_goals = [GOAL_STATE] * 3
+            self.m2_starts = [self.scramble_state(GOAL_STATE, 30) for _ in range(3)]
+
+            self.draw_board(self.m2_boards_container, "ĐÍCH CỐ ĐỊNH", GOAL_STATE, "yellow").pack(side=tk.LEFT, padx=15)
+            for i, st in enumerate(self.m2_starts):
+                self.draw_board(self.m2_boards_container, f"START {i + 1}", st, "lightblue").pack(side=tk.LEFT, padx=5)
+
+        # Thuật toán 15: Đa Goal, 1 Start (Bảo đảm giải được bằng cách đi xuôi từ Start)
+        elif self.current_advanced_mode == 16:
+            self.m2_starts = [START_STATE] * 3
+            self.m2_goals = [self.scramble_state(START_STATE, 30) for _ in range(3)]
+
+            self.draw_board(self.m2_boards_container, "START CỐ ĐỊNH", START_STATE, "lightblue").pack(side=tk.LEFT,
+                                                                                                      padx=15)
+            for i, gl in enumerate(self.m2_goals):
+                self.draw_board(self.m2_boards_container, f"ĐÍCH {i + 1}", gl, "yellow").pack(side=tk.LEFT, padx=5)
+
+        # Thuật toán 16: Random cả hai (Tạo ngẫu nhiên 3 cặp hoàn toàn độc lập, đảm bảo giải được)
+        elif self.current_advanced_mode == 17:
+            for i in range(3):
+                # Để đảm bảo tính chẵn lẻ (có nghiệm), sinh random 1 Goal, rồi lùi lại lấy Start
+                random_gl = self.scramble_state(GOAL_STATE, 20)
+                random_st = self.scramble_state(random_gl, 30)
+
+                self.m2_goals.append(random_gl)
+                self.m2_starts.append(random_st)
+
+                # Gom chung vào 1 frame nhỏ để hiển thị thành từng cặp
+                pair_frame = tk.Frame(self.m2_boards_container, bg="#f9ebea")
+                pair_frame.pack(side=tk.LEFT, padx=10)
+                self.draw_board(pair_frame, f"START {i + 1}", random_st, "lightblue").pack(pady=2)
+                self.draw_board(pair_frame, f"ĐÍCH {i + 1}", random_gl, "yellow").pack(pady=2)
+
+    def on_run_click(self):
+        selection = self.algo_listbox.curselection()
+        if not selection: return
+        version = selection[0] + 1
+
+        # Nằm ở nhóm Mode Mới (Listbox vị trí 14 là gạch ngang, 15, 16, 17 là Mode)
+        if version >= 15:
+            self.switch_to_mode2(version)
+        else:
+            self.run_algo(version)
+
+    def run_mode2_algo(self):
+        selection = self.m2_algo_listbox.curselection()
+        if not selection: return
+        m2_version = selection[0] + 1
+
+        if not self.m2_starts or not self.m2_goals:
+            self.m2_lbl_stats.config(text="LỖI:\nHãy bấm nút 'Tạo Random' trước!")
+            return
+
+        self.m2_txt_log.delete(1.0, tk.END)
+        for widget in self.m2_scrollable_history.winfo_children():
+            widget.destroy()
+
+        # BẢO LƯU Biến UI và Cấu hình cũ
+        old_txt_log = self.txt_log
+        old_scrollable = self.scrollable_history
+        old_canvas = self.canvas_left
+        old_lbl_stats = self.lbl_stats
+
+        self.txt_log = self.m2_txt_log
+        self.scrollable_history = self.m2_scrollable_history
+        self.canvas_left = self.m2_canvas_left
+        self.lbl_stats = self.m2_lbl_stats
+
+        global START_STATE, GOAL_STATE
+        original_global_start = START_STATE
+        original_global_goal = GOAL_STATE
+
+        danh_sach_ham = {
+            1: self.algo_v1, 2: self.algo_v2, 3: self.algo_v3, 4: self.algo_ids,
+            5: self.algo_ucf, 6: self.algo_greedy, 7: self.algo_astar,
+            8: self.algo_idastar, 9: self.algo_hill_climbing, 10: self.algo_steepest_hill_climbing,
+            11: self.algo_stochastic_hill_climbing, 12: self.algo_random_restart_hill_climbing,
+            13: self.algo_local_beam_search
+        }
+        ham_can_chay = danh_sach_ham.get(m2_version)
+
+        total_time = 0
+        total_nodes = 0
+        success_count = 0
+
+        # Bật cờ hiệu cho biết đang chạy ở Mode 2 (để kích hoạt cầu dao 5000 bước)
+        self.is_mode2_running = True
+
+        try:
+            # LẶP QUA CÁC CẶP START - GOAL
+            for i, (st, gl) in enumerate(zip(self.m2_starts, self.m2_goals)):
+                START_STATE = st
+                GOAL_STATE = gl
+
+                self.tu_dien_ten = {}
+                self.dem_node = 0
+                self.step_counter = 0
+
+                self.log(f"\n==========================================================")
+                self.log(f"  BẮT ĐẦU GIẢI CẶP BÀI TOÁN SỐ {i + 1}")
+                self.log(f"    - Start : {st}")
+                self.log(f"    - Đích  : {gl}")
+                self.log(f"==========================================================\n")
+
+                t0 = time.time()
+
+                try:
+                    res = ham_can_chay()
+                    t1 = time.time()
+
+                    total_time += (t1 - t0)
+                    total_nodes += len(self.tu_dien_ten)
+
+                    if res and len(res) == 3 and res[0] is not None:
+                        self.log(f"\n >>> KẾT LUẬN: ĐÃ TÌM THẤY ĐÍCH! (Tại Node {res[0].name})\n")
+                        success_count += 1
+                    else:
+                        self.log(f"\n >>> KẾT LUẬN: BẾ TẮC HOẶC ĐẠT LOCAL MAXIMUM.\n")
+
+                except Exception as e:
+                    # Nếu bắt được lỗi ném ra từ cầu dao
+                    if str(e) == "OVERLOAD":
+                        t1 = time.time()
+                        total_time += (t1 - t0)
+                        total_nodes += len(self.tu_dien_ten)
+                        self.log(f"\n [CẢNH BÁO] Đã duyệt chạm ngưỡng {self.step_counter} Node!")
+                        self.log(f" >>> KẾT LUẬN: QUÁ TẢI TÀI NGUYÊN. Buộc dừng bài toán này để bảo vệ hệ thống!\n")
+                    else:
+                        raise e  # Lỗi hệ thống thực sự thì vẫn cho crash để debug
+        finally:
+            # Tắt cờ hiệu
+            self.is_mode2_running = False
+
+            # KHÔI PHỤC HIỆN TRẠNG
+            START_STATE = original_global_start
+            GOAL_STATE = original_global_goal
+            self.txt_log = old_txt_log
+            self.scrollable_history = old_scrollable
+            self.canvas_left = old_canvas
+            self.lbl_stats = old_lbl_stats
+
+        self.m2_lbl_stats.config(
+            text=f"Đã duyệt xong bộ Test Case!\n- Tỷ lệ thành công: {success_count}/3\n- Tổng t.gian chạy: {total_time:.3f}s\n- Tổng Node sinh ra: {total_nodes}")
+        # KHÔI PHỤC HIỆN TRẠNG
+        START_STATE = original_global_start
+        GOAL_STATE = original_global_goal
+        self.txt_log = old_txt_log
+        self.scrollable_history = old_scrollable
+        self.canvas_left = old_canvas
+        self.lbl_stats = old_lbl_stats
+
+        self.m2_lbl_stats.config(
+            text=f"Đã duyệt xong 3 bài toán!\n- Tỷ lệ thành công: {success_count}/3\n- Tổng t.gian giải: {total_time:.3f}s\n- Tổng số Node sinh ra: {total_nodes}")
+
+    # 13 THUẬT TOÁN CŨ
     def draw_board(self, parent, title, state, title_bg="lightgray"):
         frame = tk.Frame(parent, bd=2, relief=tk.GROOVE, bg="black")
         tk.Label(frame, text=title, font=("Arial", 8, "bold"), bg=title_bg).pack(fill=tk.X)
@@ -201,11 +514,32 @@ class app_puzzle:
     def add_history_block(self, curr_node, children_nodes, special_msg=""):
         self.step_counter += 1
 
+        # CƠ CHẾ CHỐNG LAG GIAO DIỆN
+        if self.step_counter > 150:
+            if self.step_counter == 151:
+                self.log("\n[HỆ THỐNG] Tạm dừng vẽ đồ họa từ bước 150 để chống lag.")
+                self.log("[HỆ THỐNG] Đang chạy ngầm ở tốc độ tối đa, vui lòng đợi...\n")
+                self.root.update()
+
+            # CẦU DAO TỰ ĐỘNG: CHỈ ÁP DỤNG CHO MODE 2
+
+            if getattr(self, 'is_mode2_running', False):
+                if self.step_counter > 5000:  # Ngưỡng an toàn đủ lớn
+                    raise Exception("OVERLOAD")  # Kéo cầu dao!
+
+            # Thoát hàm sớm, không tạo Frame đồ họa để tiết kiệm RAM
+            return
+
         block = tk.Frame(self.scrollable_history, bg="#f9f9f9", bd=1, relief=tk.SOLID)
         block.pack(fill=tk.X, padx=10, pady=5)
 
-        selection = self.algo_listbox.curselection()
-        algo_idx = selection[0] + 1 if selection else 1
+        algo_idx = 1
+        if hasattr(self, 'm2_algo_listbox') and self.m2_algo_listbox.winfo_viewable():
+            sel = self.m2_algo_listbox.curselection()
+            if sel: algo_idx = sel[0] + 1
+        else:
+            sel = self.algo_listbox.curselection()
+            if sel: algo_idx = sel[0] + 1
 
         header_text = f"Bước {self.step_counter}: Xét node {curr_node.name} (Độ sâu: {curr_node.depth}"
         if algo_idx == 5 and hasattr(curr_node, 'path_cost'):
@@ -227,10 +561,9 @@ class app_puzzle:
         if special_msg:
             tk.Label(content_frame, text=f"  ➡\n{special_msg}", font=("Arial", 10, "bold"), bg="#f9f9f9",
                      fg="red").pack(side=tk.LEFT, padx=15)
-            self.root.update_idletasks()
+            self.root.update()
             self.canvas_left.configure(scrollregion=self.canvas_left.bbox("all"))
             self.canvas_left.yview_moveto(1)
-            time.sleep(0.05)
             return
 
         tk.Label(content_frame, text=" ➡\nSinh ra", font=("Arial", 9, "bold"), bg="#f9f9f9", fg="gray").pack(
@@ -244,20 +577,9 @@ class app_puzzle:
             title = f"{child.name}(Trùng)" if is_dup else f"{child.action} -> {child.name}"
             self.draw_board(children_frame, title, child.state, color).pack(side=tk.LEFT, padx=2)
 
-        self.root.update_idletasks()
+        self.root.update()
         self.canvas_left.configure(scrollregion=self.canvas_left.bbox("all"))
         self.canvas_left.yview_moveto(1)
-        time.sleep(0.05)
-
-    # Quan ly thuat toan bang DICTIONARY DISPATCH
-    def on_run_click(self):
-        selection = self.algo_listbox.curselection()
-        if not selection:
-            return
-
-        version = selection[0] + 1
-        self.run_algo(version)
-
     def run_algo(self, version):
         self.txt_log.delete(1.0, tk.END)
         self.lbl_stats.config(text="Đang tính toán...")
@@ -341,7 +663,6 @@ class app_puzzle:
         else:
             self.log("\n Không tìm thấy đích hoặc quá giới hạn!")
 
-    # CÁC THUẬT TOÁN TÌM KIẾM CŨ
     def algo_greedy(self):
         root = Node(START_STATE, node_id=1)
         root.name = self.get_name(root.state)
@@ -962,8 +1283,6 @@ class app_puzzle:
 
         self.log(f"\n[THẤT BẠI] Đã chạy hết sạch {MAX_RESTART} lượt mà vẫn không chạm được Goal.")
         return None, total_popped, max_f
-
-    # LOCAL BEAM SEARCH
 
     def algo_local_beam_search(self):
         k = 2
