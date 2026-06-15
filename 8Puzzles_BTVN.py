@@ -129,10 +129,13 @@ class app_puzzle:
             "11. Stochastic Hill Climbing (Leo đồi Ngẫu nhiên)",
             "12. Random Restart Hill Climbing (Lặp lại)",
             "13. Local Beam Search (Mã giả chuẩn k=2)",
+            "14. AND-OR Graph Search (Mô phỏng)",
+            "15. Backtracking (Nguyên bản)",
+            "16. Forward Checking (Backtracking + Nhìn trước)",
             "---------------------------------------",
-            "14. [MODE MỚI] Đa Start - Cố định Đích",
-            "15. [MODE MỚI] Đa Đích - Cố định Start",
-            "16. [MODE MỚI] Random cả Start và Đích"
+            "18. [MODE 2] Đa Start - Cố định Đích",
+            "19. [MODE 2] Đa Đích - Cố định Start",
+            "20. [MODE 2] Random cả Start và Đích"
         ]
         for algo in algorithms:
             self.algo_listbox.insert(tk.END, algo)
@@ -350,9 +353,11 @@ class app_puzzle:
         if not selection: return
         version = selection[0] + 1
 
-        # Nằm ở nhóm Mode Mới (Listbox vị trí 14 là gạch ngang, 15, 16, 17 là Mode)
-        if version >= 15:
+        # Cập nhật index: Từ 18 trở đi mới là Mode 2
+        if version >= 18:
             self.switch_to_mode2(version)
+        elif version == 17:
+            return # Bỏ qua vạch kẻ ngang
         else:
             self.run_algo(version)
 
@@ -591,19 +596,14 @@ class app_puzzle:
         self.step_counter = 0
 
         danh_sach_ham = {
-            1: self.algo_v1,
-            2: self.algo_v2,
-            3: self.algo_v3,
-            4: self.algo_ids,
-            5: self.algo_ucf,
-            6: self.algo_greedy,
-            7: self.algo_astar,
-            8: self.algo_idastar,
-            9: self.algo_hill_climbing,
-            10: self.algo_steepest_hill_climbing,
-            11: self.algo_stochastic_hill_climbing,
-            12: self.algo_random_restart_hill_climbing,
-            13: self.algo_local_beam_search
+            1: self.algo_v1, 2: self.algo_v2, 3: self.algo_v3, 4: self.algo_ids,
+            5: self.algo_ucf, 6: self.algo_greedy, 7: self.algo_astar,
+            8: self.algo_idastar, 9: self.algo_hill_climbing, 10: self.algo_steepest_hill_climbing,
+            11: self.algo_stochastic_hill_climbing, 12: self.algo_random_restart_hill_climbing,
+            13: self.algo_local_beam_search,
+            14: self.algo_and_or,
+            15: self.algo_backtracking,
+            16: self.algo_forward_checking
         }
 
         ham_can_chay = danh_sach_ham.get(version)
@@ -612,19 +612,14 @@ class app_puzzle:
             return
 
         algo_name = [
-            "BFS Mã giả 1",
-            "BFS Mã giả 2",
-            "BFS Mã giả 3",
-            "IDS (Tìm kiếm sâu dần)",
-            "UCF (Số ô sai)",
-            "Greedy (Tham lam - Manhattan)",
-            "A* (g=Số ô sai, h=Manhattan)",
-            "IDA* (g=Manhattan, h=Manhattan)",
-            "Simple Hill Climbing (Leo đồi cơ bản)",
-            "Steepest-Ascent Hill Climbing (Chọn Tốt Nhất)",
-            "Stochastic Hill Climbing (Leo đồi Ngẫu nhiên)",
-            "Random Restart Hill Climbing (Khởi động lại)",
-            "Local Beam Search (Mã giả chuẩn k=2)"
+            "BFS Mã giả 1", "BFS Mã giả 2", "BFS Mã giả 3", "IDS (Tìm kiếm sâu dần)",
+            "UCF (Số ô sai)", "Greedy (Tham lam - Manhattan)", "A* (g=Số ô sai, h=Manhattan)",
+            "IDA* (g=Manhattan, h=Manhattan)", "Simple Hill Climbing (Leo đồi cơ bản)",
+            "Steepest-Ascent Hill Climbing (Chọn Tốt Nhất)", "Stochastic Hill Climbing",
+            "Random Restart Hill Climbing", "Local Beam Search (Mã giả chuẩn k=2)",
+            "AND-OR Graph Search (Mô phỏng)",
+            "Backtracking (Nguyên bản)",
+            "Forward Checking (Nhìn trước 1 bước)"
         ][version - 1]
 
         self.log(f"=== KHỞI ĐỘNG: {algo_name} ===\n")
@@ -1367,6 +1362,176 @@ class app_puzzle:
             if popped > 500:
                 self.log("\n[CẢNH BÁO] Đạt giới hạn an toàn vòng lặp. Dừng hệ thống (Beam Search bị kẹt).")
                 return None, popped, max_f
+
+    def algo_backtracking(self):
+        self.bt_goal = None
+        self.bt_popped = 0
+
+        def backtrack(curr_state, path, parent_node):
+            if self.bt_goal or self.bt_popped > 3000: return
+            self.bt_popped += 1
+
+            curr_node = Node(curr_state, parent_node, depth=len(path) - 1)
+            curr_node.name = self.get_name(curr_state)
+
+            # KIỂM TRA RÀNG BUỘC ĐÍCH
+            if curr_state == GOAL_STATE:
+                self.bt_goal = curr_node
+                self.add_history_block(curr_node, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
+                return
+
+            # RÀNG BUỘC ĐỘ SÂU (Ép thuật toán quay lui nếu đi quá xa)
+            if len(path) > 15:
+                self.log(f"  -> Vi phạm ràng buộc: Đạt giới hạn độ sâu 15. Buộc quay lui!")
+                self.add_history_block(curr_node, [], "Quay lui\n(Quá sâu)")
+                return
+
+            neighbors = get_neighbors(curr_state)
+            visual_children = []
+            valid_children = []
+
+            for a, s in neighbors:
+                child = Node(s, curr_node, a, curr_node.depth + 1)
+                child.name = self.get_name(s)
+                if s in path:
+                    visual_children.append((child, True))  # Vi phạm ràng buộc lặp
+                else:
+                    visual_children.append((child, False))
+                    valid_children.append((a, s))
+
+            self.add_history_block(curr_node, visual_children)
+
+            # BƯỚC DUYỆT MIỀN GIÁ TRỊ VÀ QUAY LUI
+            for a, s in valid_children:
+                # BƯỚC A: DO (Thử)
+                path.append(s)
+                self.log(f"\n[DO] Gán hành động {a} -> Chuyển sang Node {self.get_name(s)}")
+
+                # BƯỚC B: RECURSE (Đệ quy đi tiếp)
+                backtrack(s, path, curr_node)
+                if self.bt_goal: return
+
+                # BƯỚC C: UNDO (Hoàn tác)
+                popped_state = path.pop()
+                self.log(
+                    f"[UNDO] Nhánh {a} thất bại. Xóa Node {self.get_name(popped_state)}, rút lui về {curr_node.name}")
+
+        self.log("Khởi tạo Assignment rỗng. Ràng buộc: Độ sâu <= 15.")
+        backtrack(START_STATE, [START_STATE], None)
+        return self.bt_goal, self.bt_popped, 1
+
+    def algo_forward_checking(self):
+        self.fc_goal = None
+        self.fc_popped = 0
+
+        def backtrack_fc(curr_state, path, parent_node):
+            if self.fc_goal or self.fc_popped > 3000: return
+            self.fc_popped += 1
+
+            curr_node = Node(curr_state, parent_node, depth=len(path) - 1)
+            curr_node.name = self.get_name(curr_state)
+
+            if curr_state == GOAL_STATE:
+                self.fc_goal = curr_node
+                self.add_history_block(curr_node, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
+                return
+
+            if len(path) > 15:
+                self.add_history_block(curr_node, [], "Quay lui\n(Quá sâu)")
+                return
+
+            neighbors = get_neighbors(curr_state)
+            visual_children = []
+            valid_children = []
+
+            for a, s in neighbors:
+                child = Node(s, curr_node, a, curr_node.depth + 1)
+                child.name = self.get_name(s)
+                if s in path:
+                    visual_children.append((child, True))
+                else:
+                    # ==========================================
+                    # FORWARD CHECKING: Nhìn trước 1 bước
+                    # ==========================================
+                    future = get_neighbors(s)
+                    all_dead = True
+                    for fa, fs in future:
+                        if fs not in path and fs != curr_state:
+                            all_dead = False
+                            break
+
+                    if all_dead and s != GOAL_STATE:
+                        visual_children.append((child, True))  # Gạch bỏ ngay lập tức
+                        self.log(f"  [FORWARD CHECKING] Nhìn trước nhánh {a} thấy 100% ngõ cụt. Tỉa cành (Prune)!")
+                    else:
+                        visual_children.append((child, False))
+                        valid_children.append((a, s))
+
+            self.add_history_block(curr_node, visual_children)
+
+            for a, s in valid_children:
+                path.append(s)
+                self.log(f"\n[DO] Gán hành động {a} -> Node {self.get_name(s)}")
+                backtrack_fc(s, path, curr_node)
+                if self.fc_goal: return
+                popped_state = path.pop()
+                self.log(f"[UNDO] Rút lui khỏi {self.get_name(popped_state)}")
+
+        backtrack_fc(START_STATE, [START_STATE], None)
+        return self.fc_goal, self.fc_popped, 1
+
+    def algo_and_or(self):
+        self.ao_goal = None
+        self.ao_popped = 0
+
+        def or_search(state, path, parent_node):
+            if self.ao_goal or self.ao_popped > 3000: return "failure"
+            self.ao_popped += 1
+
+            curr_node = Node(state, parent_node, depth=len(path))
+            curr_node.name = self.get_name(state)
+
+            if state == GOAL_STATE:
+                self.ao_goal = curr_node
+                self.add_history_block(curr_node, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
+                return "success"
+
+            if len(path) > 15:
+                self.add_history_block(curr_node, [], "Thất bại\n(Quá sâu)")
+                return "failure"
+
+            neighbors = get_neighbors(state)
+            visual_children = []
+            for a, s in neighbors:
+                child = Node(s, curr_node, a, curr_node.depth + 1)
+                child.name = self.get_name(s)
+                visual_children.append((child, s in path))
+
+            self.add_history_block(curr_node, visual_children)
+
+            for a, s in neighbors:
+                if s in path: continue
+                self.log(f"\n[OR_SEARCH] AI chọn hành động: {a}")
+
+                # Gọi AND_SEARCH để xử lý kết quả môi trường ném lại
+                res = and_search([s], path + [state], curr_node)
+                if res == "success": return "success"
+
+            return "failure"
+
+        def and_search(states, path, parent_node):
+            # Duyệt qua các trạng thái môi trường phản hồi (Với 8-puzzle luôn là 1 trạng thái)
+            for s in states:
+                self.log(f"[AND_SEARCH] Môi trường phản hồi trạng thái: Node {self.get_name(s)}. Lập kế hoạch...")
+                res = or_search(s, path, parent_node)
+                if res == "failure": return "failure"
+            return "success"
+
+        or_search(START_STATE, [], None)
+        return self.ao_goal, self.ao_popped, 1
+
+
+
 
 
 if __name__ == "__main__":
