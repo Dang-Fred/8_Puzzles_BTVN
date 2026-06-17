@@ -41,7 +41,7 @@ def get_neighbors(state):
 class app_puzzle:
     def __init__(self, root):
         self.root = root
-        self.root.title("Hệ Thống Phân Tích Tìm Kiếm (BFS, IDS, UCF, Greedy, Hill Climbing, Beam Search)")
+        self.root.title("Hệ Thống Phân Tích Tìm Kiếm (BFS, IDS, UCF, Greedy, Hill Climbing, Beam Search, CSP)")
         self.root.state('zoomed')
 
         self.root.columnconfigure(0, weight=4)
@@ -49,8 +49,7 @@ class app_puzzle:
         self.root.columnconfigure(2, weight=3)
         self.root.rowconfigure(0, weight=1)
 
-        # Trạng thái để lưu chế độ nâng cao đang chọn (14, 15, 16)
-        self.current_advanced_mode = 14
+        self.current_advanced_mode = 20
 
         # GIAO DIỆN MODE 1
 
@@ -106,7 +105,7 @@ class app_puzzle:
         list_frame = tk.Frame(self.frame_mid)
         list_frame.pack(fill=tk.BOTH, padx=10, pady=5)
 
-        self.algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=17, selectbackground="#a9dfbf",
+        self.algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=21, selectbackground="#a9dfbf",
                                        selectforeground="black")
         scroll_list = tk.Scrollbar(list_frame, orient="vertical", command=self.algo_listbox.yview)
         self.algo_listbox.config(yscrollcommand=scroll_list.set)
@@ -114,7 +113,7 @@ class app_puzzle:
         self.algo_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_list.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # CẬP NHẬT MENU: Thêm thuật toán 15, 16
+        # CẬP NHẬT MENU: Bổ sung thuật toán 17 và 18 (AC-3, Min-Conflicts)
         algorithms = [
             "1. BFS (Tối ưu)",
             "2. BFS (Nhớ trễ)",
@@ -132,10 +131,12 @@ class app_puzzle:
             "14. AND-OR Graph Search (Mô phỏng)",
             "15. Backtracking (Nguyên bản)",
             "16. Forward Checking (Backtracking + Nhìn trước)",
+            "17. AC-3 (Arc Consistency - Tỉa nhánh kề)",
+            "18. Min-Conflicts (Local Search cho CSP)",
             "---------------------------------------",
-            "18. [MODE 2] Đa Start - Cố định Đích",
-            "19. [MODE 2] Đa Đích - Cố định Start",
-            "20. [MODE 2] Random cả Start và Đích"
+            "20. [MODE 2] Đa Start - Cố định Đích",
+            "21. [MODE 2] Đa Đích - Cố định Start",
+            "22. [MODE 2] Random cả Start và Đích"
         ]
         for algo in algorithms:
             self.algo_listbox.insert(tk.END, algo)
@@ -226,14 +227,14 @@ class app_puzzle:
 
         list_frame = tk.Frame(self.frame_m2_mid)
         list_frame.pack(fill=tk.BOTH, padx=10, pady=5)
-        self.m2_algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=13, selectbackground="#a9dfbf",
+        self.m2_algo_listbox = tk.Listbox(list_frame, font=("Arial", 10), height=15, selectbackground="#a9dfbf",
                                           selectforeground="black")
         scroll_list = tk.Scrollbar(list_frame, orient="vertical", command=self.m2_algo_listbox.yview)
         self.m2_algo_listbox.config(yscrollcommand=scroll_list.set)
         self.m2_algo_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_list.pack(side=tk.RIGHT, fill=tk.Y)
 
-        for i in range(13):
+        for i in range(18):  # Hiển thị 18 thuật toán đầu trong Mode 2
             self.m2_algo_listbox.insert(tk.END, self.algo_listbox.get(i))
         self.m2_algo_listbox.selection_set(0)
 
@@ -257,15 +258,15 @@ class app_puzzle:
     def switch_to_mode2(self, mode_idx):
         self.current_advanced_mode = mode_idx
 
-        # Cập nhật thông báo tùy thuộc vào lựa chọn
-        if mode_idx == 15:  # Random 14 is +1 index in the list, so index 14 -> version 15
-            self.m2_title_label.config(text="CẤU HÌNH: ĐA START - CỐ ĐỊNH ĐÍCH (Thuật toán 14)")
+        # Cập nhật thông báo tùy thuộc vào lựa chọn (Điều chỉnh index mới)
+        if mode_idx == 20:
+            self.m2_title_label.config(text="CẤU HÌNH: ĐA START - CỐ ĐỊNH ĐÍCH (Chế độ 1)")
             self.btn_m2_generate.config(text=" Xáo trộn tạo 3 Start ngẫu nhiên")
-        elif mode_idx == 16:
-            self.m2_title_label.config(text="CẤU HÌNH: ĐA ĐÍCH - CỐ ĐỊNH START (Thuật toán 15)")
+        elif mode_idx == 21:
+            self.m2_title_label.config(text="CẤU HÌNH: ĐA ĐÍCH - CỐ ĐỊNH START (Chế độ 2)")
             self.btn_m2_generate.config(text=" Xáo trộn tạo 3 Đích ngẫu nhiên")
-        elif mode_idx == 17:
-            self.m2_title_label.config(text="CẤU HÌNH: RANDOM CẢ START & ĐÍCH (Thuật toán 16)")
+        elif mode_idx == 22:
+            self.m2_title_label.config(text="CẤU HÌNH: RANDOM CẢ START & ĐÍCH (Chế độ 3)")
             self.btn_m2_generate.config(text=" Sinh 3 cặp Start-Goal ngẫu nhiên")
 
         self.frame_left.grid_remove()
@@ -313,8 +314,7 @@ class app_puzzle:
         self.m2_starts.clear()
         self.m2_goals.clear()
 
-        # Thuật toán 14: Đa Start, 1 Goal (Bảo đảm giải được bằng cách đi ngược từ Goal)
-        if self.current_advanced_mode == 15:
+        if self.current_advanced_mode == 20:
             self.m2_goals = [GOAL_STATE] * 3
             self.m2_starts = [self.scramble_state(GOAL_STATE, 30) for _ in range(3)]
 
@@ -322,8 +322,7 @@ class app_puzzle:
             for i, st in enumerate(self.m2_starts):
                 self.draw_board(self.m2_boards_container, f"START {i + 1}", st, "lightblue").pack(side=tk.LEFT, padx=5)
 
-        # Thuật toán 15: Đa Goal, 1 Start (Bảo đảm giải được bằng cách đi xuôi từ Start)
-        elif self.current_advanced_mode == 16:
+        elif self.current_advanced_mode == 21:
             self.m2_starts = [START_STATE] * 3
             self.m2_goals = [self.scramble_state(START_STATE, 30) for _ in range(3)]
 
@@ -332,17 +331,14 @@ class app_puzzle:
             for i, gl in enumerate(self.m2_goals):
                 self.draw_board(self.m2_boards_container, f"ĐÍCH {i + 1}", gl, "yellow").pack(side=tk.LEFT, padx=5)
 
-        # Thuật toán 16: Random cả hai (Tạo ngẫu nhiên 3 cặp hoàn toàn độc lập, đảm bảo giải được)
-        elif self.current_advanced_mode == 17:
+        elif self.current_advanced_mode == 22:
             for i in range(3):
-                # Để đảm bảo tính chẵn lẻ (có nghiệm), sinh random 1 Goal, rồi lùi lại lấy Start
                 random_gl = self.scramble_state(GOAL_STATE, 20)
                 random_st = self.scramble_state(random_gl, 30)
 
                 self.m2_goals.append(random_gl)
                 self.m2_starts.append(random_st)
 
-                # Gom chung vào 1 frame nhỏ để hiển thị thành từng cặp
                 pair_frame = tk.Frame(self.m2_boards_container, bg="#f9ebea")
                 pair_frame.pack(side=tk.LEFT, padx=10)
                 self.draw_board(pair_frame, f"START {i + 1}", random_st, "lightblue").pack(pady=2)
@@ -353,11 +349,11 @@ class app_puzzle:
         if not selection: return
         version = selection[0] + 1
 
-        # Cập nhật index: Từ 18 trở đi mới là Mode 2
-        if version >= 18:
+        # Cập nhật index điều hướng: Mode 2 nằm từ vị trí 20
+        if version >= 20:
             self.switch_to_mode2(version)
-        elif version == 17:
-            return # Bỏ qua vạch kẻ ngang
+        elif version == 19:
+            return  # Bỏ qua vạch kẻ ngang
         else:
             self.run_algo(version)
 
@@ -394,7 +390,12 @@ class app_puzzle:
             5: self.algo_ucf, 6: self.algo_greedy, 7: self.algo_astar,
             8: self.algo_idastar, 9: self.algo_hill_climbing, 10: self.algo_steepest_hill_climbing,
             11: self.algo_stochastic_hill_climbing, 12: self.algo_random_restart_hill_climbing,
-            13: self.algo_local_beam_search
+            13: self.algo_local_beam_search,
+            14: self.algo_and_or,
+            15: self.algo_backtracking,
+            16: self.algo_forward_checking,
+            17: self.algo_ac3,
+            18: self.algo_min_conflicts
         }
         ham_can_chay = danh_sach_ham.get(m2_version)
 
@@ -406,7 +407,6 @@ class app_puzzle:
         self.is_mode2_running = True
 
         try:
-            # LẶP QUA CÁC CẶP START - GOAL
             for i, (st, gl) in enumerate(zip(self.m2_starts, self.m2_goals)):
                 START_STATE = st
                 GOAL_STATE = gl
@@ -437,7 +437,6 @@ class app_puzzle:
                         self.log(f"\n >>> KẾT LUẬN: BẾ TẮC HOẶC ĐẠT LOCAL MAXIMUM.\n")
 
                 except Exception as e:
-                    # Nếu bắt được lỗi ném ra từ cầu dao
                     if str(e) == "OVERLOAD":
                         t1 = time.time()
                         total_time += (t1 - t0)
@@ -445,12 +444,9 @@ class app_puzzle:
                         self.log(f"\n [CẢNH BÁO] Đã duyệt chạm ngưỡng {self.step_counter} Node!")
                         self.log(f" >>> KẾT LUẬN: QUÁ TẢI TÀI NGUYÊN. Buộc dừng bài toán này để bảo vệ hệ thống!\n")
                     else:
-                        raise e  # Lỗi hệ thống thực sự thì vẫn cho crash để debug
+                        raise e
         finally:
-            # Tắt cờ hiệu
             self.is_mode2_running = False
-
-            # KHÔI PHỤC HIỆN TRẠNG
             START_STATE = original_global_start
             GOAL_STATE = original_global_goal
             self.txt_log = old_txt_log
@@ -459,19 +455,9 @@ class app_puzzle:
             self.lbl_stats = old_lbl_stats
 
         self.m2_lbl_stats.config(
-            text=f"Đã duyệt xong bộ Test Case!\n- Tỷ lệ thành công: {success_count}/3\n- Tổng t.gian chạy: {total_time:.3f}s\n- Tổng Node sinh ra: {total_nodes}")
-        # KHÔI PHỤC HIỆN TRẠNG
-        START_STATE = original_global_start
-        GOAL_STATE = original_global_goal
-        self.txt_log = old_txt_log
-        self.scrollable_history = old_scrollable
-        self.canvas_left = old_canvas
-        self.lbl_stats = old_lbl_stats
-
-        self.m2_lbl_stats.config(
             text=f"Đã duyệt xong 3 bài toán!\n- Tỷ lệ thành công: {success_count}/3\n- Tổng t.gian giải: {total_time:.3f}s\n- Tổng số Node sinh ra: {total_nodes}")
 
-    # 13 THUẬT TOÁN CŨ
+    # 18 THUẬT TOÁN ĐIỀU PHỐI
     def draw_board(self, parent, title, state, title_bg="lightgray"):
         frame = tk.Frame(parent, bd=2, relief=tk.GROOVE, bg="black")
         tk.Label(frame, text=title, font=("Arial", 8, "bold"), bg=title_bg).pack(fill=tk.X)
@@ -527,7 +513,6 @@ class app_puzzle:
                 self.root.update()
 
             # CẦU DAO TỰ ĐỘNG: CHỈ ÁP DỤNG CHO MODE 2
-
             if getattr(self, 'is_mode2_running', False):
                 if self.step_counter > 5000:  # Ngưỡng an toàn đủ lớn
                     raise Exception("OVERLOAD")  # Kéo cầu dao!
@@ -549,7 +534,7 @@ class app_puzzle:
         header_text = f"Bước {self.step_counter}: Xét node {curr_node.name} (Độ sâu: {curr_node.depth}"
         if algo_idx == 5 and hasattr(curr_node, 'path_cost'):
             header_text += f", g={curr_node.path_cost}"
-        elif algo_idx in [6, 9, 10, 11, 12, 13] and hasattr(curr_node, 'h_cost'):
+        elif algo_idx in [6, 9, 10, 11, 12, 13, 18] and hasattr(curr_node, 'h_cost'):
             header_text += f", h={curr_node.h_cost}"
         header_text += ")"
 
@@ -585,6 +570,7 @@ class app_puzzle:
         self.root.update()
         self.canvas_left.configure(scrollregion=self.canvas_left.bbox("all"))
         self.canvas_left.yview_moveto(1)
+
     def run_algo(self, version):
         self.txt_log.delete(1.0, tk.END)
         self.lbl_stats.config(text="Đang tính toán...")
@@ -603,7 +589,9 @@ class app_puzzle:
             13: self.algo_local_beam_search,
             14: self.algo_and_or,
             15: self.algo_backtracking,
-            16: self.algo_forward_checking
+            16: self.algo_forward_checking,
+            17: self.algo_ac3,
+            18: self.algo_min_conflicts
         }
 
         ham_can_chay = danh_sach_ham.get(version)
@@ -619,7 +607,9 @@ class app_puzzle:
             "Random Restart Hill Climbing", "Local Beam Search (Mã giả chuẩn k=2)",
             "AND-OR Graph Search (Mô phỏng)",
             "Backtracking (Nguyên bản)",
-            "Forward Checking (Nhìn trước 1 bước)"
+            "Forward Checking (Nhìn trước 1 bước)",
+            "AC-3 (Arc Consistency 3)",
+            "Min-Conflicts (Local Search CSP)"
         ][version - 1]
 
         self.log(f"=== KHỞI ĐỘNG: {algo_name} ===\n")
@@ -646,7 +636,7 @@ class app_puzzle:
             stats_text += f"- Độ sâu đích: {goal_node.depth} bước\n"
             if version == 5:
                 stats_text += f"- Chi phí (g): {goal_node.path_cost}"
-            elif version in [6, 9, 10, 11, 12, 13]:
+            elif version in [6, 9, 10, 11, 12, 13, 18]:
                 stats_text += f"- Heuristic đích (h): {goal_node.h_cost}"
             elif version in [7, 8] and hasattr(goal_node, 'f_cost'):
                 stats_text += f"- Tổng chi phí f đích: {goal_node.f_cost}"
@@ -1226,7 +1216,6 @@ class app_puzzle:
             self.log(f" Bắt đầu lượt chạy thứ {i}/{MAX_RESTART}")
             self.log("=" * 40)
 
-            # Khởi tạo lại từ trạng thái ban đầu ở mỗi lượt chạy
             root = Node(START_STATE, node_id=1)
             root.name = self.get_name(root.state)
             root.h_cost = self.calc_manhattan(root.state)
@@ -1244,7 +1233,6 @@ class app_puzzle:
                 better_neighbors = []
                 visual_children = []
 
-                # Sinh tất cả các trạng thái lân cận
                 for action, child_state in get_neighbors(current_node.state):
                     h_cost = self.calc_manhattan(child_state)
                     child = Node(child_state, current_node, action, current_node.depth + 1, counter)
@@ -1255,21 +1243,17 @@ class app_puzzle:
                     visual_children.append((child, False))
                     self.log(f"  Sinh lân cận: [{current_node.name}, {action}] -> Node {child.name} (h={h_cost})")
 
-                    # Lọc ra tập Better_Neighbors
                     if h_cost < current_node.h_cost:
                         better_neighbors.append(child)
 
-                # Hiển thị UI
                 self.add_history_block(current_node, visual_children)
 
-                # Kiểm tra bế tắc
                 if not better_neighbors:
                     self.log(f"  => Tập Better_Neighbors RỖNG. Đạt cực đại cục bộ.")
                     self.log(f"  => Thoát vòng lặp. Chuẩn bị chạy lại...")
                     self.add_history_block(current_node, [], f"Local Maximum\n(Kẹt ở lượt {i})")
-                    break  # Bị kẹt, thoát vòng lặp WHILE để chuyển sang vòng lặp FOR tiếp theo (lượt i+1)
+                    break
                 else:
-                    # Nếu chưa kẹt, chọn ngẫu nhiên 1 trạng thái tốt hơn để đi tiếp
                     next_node = random.choice(better_neighbors)
                     better_names = [n.name for n in better_neighbors]
                     self.log(f"  => Tập Better_Neighbors gồm: {better_names}")
@@ -1287,10 +1271,8 @@ class app_puzzle:
 
         self.log(f"Khởi tạo Local Beam Search (k = {k}).")
 
-        # 1. Khởi tạo: Current_State_set = {Sinh ngẫu nhiên k trạng thái từ Start}
         current_state_set = []
 
-        # Lấy ngẫu nhiên k lân cận của Start để làm chùm khởi tạo ban đầu, đảm bảo tính hợp lệ
         start_neighbors = [child_state for action, child_state in get_neighbors(START_STATE)]
         random_initial_states = random.sample(start_neighbors, min(k, len(start_neighbors)))
 
@@ -1302,7 +1284,6 @@ class app_puzzle:
             counter += 1
             self.log(f" + Sinh ngẫu nhiên từ Start: Node {root.name} (h={root.h_cost})")
 
-        # 2. TRONG KHI (đúng):
         while True:
             popped += 1
             self.log(f"\n" + "=" * 40)
@@ -1311,12 +1292,10 @@ class app_puzzle:
 
             neighbor_states = []
 
-            # 2.1. SINH TRẠNG THÁI LÂN CẬN
             for curr in current_state_set:
                 self.log(f"\n + Xét Node {curr.name} trong chùm (h={curr.h_cost}):")
                 visual_children = []
 
-                # Sinh tất cả các trạng thái lân cận của State
                 for action, child_state in get_neighbors(curr.state):
                     h_cost = self.calc_manhattan(child_state)
                     child = Node(child_state, curr, action, curr.depth + 1, counter)
@@ -1324,15 +1303,12 @@ class app_puzzle:
                     child.h_cost = h_cost
                     counter += 1
 
-                    # Thêm các trạng thái lân cận này vào Neighbor_States
                     neighbor_states.append(child)
                     visual_children.append((child, False))
                     self.log(f"    [{action}] -> Sinh Node {child.name} (h={h_cost})")
 
-                # Cập nhật UI
                 self.add_history_block(curr, visual_children)
 
-            # 2.2. KIỂM TRA BẾ TẮC
             if not neighbor_states:
                 self.log(f"\n => Kiểm tra bế tắt: Neighbor_States rỗng!")
                 current_state_set.sort(key=lambda n: n.h_cost)
@@ -1341,24 +1317,19 @@ class app_puzzle:
                 self.add_history_block(best_node, [], "Bế tắc\n(Dừng thuật toán)")
                 return None, popped, max_f
 
-            # 2.3. KIỂM TRA ĐÍCH
             for neighbor in neighbor_states:
                 if neighbor.state == GOAL_STATE:
                     self.log(f"\n => Kiểm tra đích: TÌM THẤY ĐÍCH tại Node {neighbor.name}!")
                     self.add_history_block(neighbor, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
                     return neighbor, popped, max_f
 
-            # 2.4. NẾU CHƯA TÌM THẤY ĐÍCH
-            # Sắp xếp Neighbor_States theo thứ tự giá trị hàm mục tiêu h tốt dần
             neighbor_states.sort(key=lambda n: n.h_cost)
 
-            # Current_State_set = Lấy k trạng thái tốt nhất từ Neighbor_States đã sắp xếp
             current_state_set = neighbor_states[:k]
 
             chosen_names = [f"{n.name}(h={n.h_cost})" for n in current_state_set]
             self.log(f"\n => Lụa chọn chùm ({k} tốt nhất từ Neighbor_States): {', '.join(chosen_names)}")
 
-            # Ngắt an toàn UI
             if popped > 500:
                 self.log("\n[CẢNH BÁO] Đạt giới hạn an toàn vòng lặp. Dừng hệ thống (Beam Search bị kẹt).")
                 return None, popped, max_f
@@ -1374,13 +1345,11 @@ class app_puzzle:
             curr_node = Node(curr_state, parent_node, depth=len(path) - 1)
             curr_node.name = self.get_name(curr_state)
 
-            # KIỂM TRA RÀNG BUỘC ĐÍCH
             if curr_state == GOAL_STATE:
                 self.bt_goal = curr_node
                 self.add_history_block(curr_node, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
                 return
 
-            # RÀNG BUỘC ĐỘ SÂU (Ép thuật toán quay lui nếu đi quá xa)
             if len(path) > 15:
                 self.log(f"  -> Vi phạm ràng buộc: Đạt giới hạn độ sâu 15. Buộc quay lui!")
                 self.add_history_block(curr_node, [], "Quay lui\n(Quá sâu)")
@@ -1394,24 +1363,18 @@ class app_puzzle:
                 child = Node(s, curr_node, a, curr_node.depth + 1)
                 child.name = self.get_name(s)
                 if s in path:
-                    visual_children.append((child, True))  # Vi phạm ràng buộc lặp
+                    visual_children.append((child, True))
                 else:
                     visual_children.append((child, False))
                     valid_children.append((a, s))
 
             self.add_history_block(curr_node, visual_children)
 
-            # BƯỚC DUYỆT MIỀN GIÁ TRỊ VÀ QUAY LUI
             for a, s in valid_children:
-                # BƯỚC A: DO (Thử)
                 path.append(s)
                 self.log(f"\n[DO] Gán hành động {a} -> Chuyển sang Node {self.get_name(s)}")
-
-                # BƯỚC B: RECURSE (Đệ quy đi tiếp)
                 backtrack(s, path, curr_node)
                 if self.bt_goal: return
-
-                # BƯỚC C: UNDO (Hoàn tác)
                 popped_state = path.pop()
                 self.log(
                     f"[UNDO] Nhánh {a} thất bại. Xóa Node {self.get_name(popped_state)}, rút lui về {curr_node.name}")
@@ -1450,9 +1413,6 @@ class app_puzzle:
                 if s in path:
                     visual_children.append((child, True))
                 else:
-                    # ==========================================
-                    # FORWARD CHECKING: Nhìn trước 1 bước
-                    # ==========================================
                     future = get_neighbors(s)
                     all_dead = True
                     for fa, fs in future:
@@ -1461,7 +1421,7 @@ class app_puzzle:
                             break
 
                     if all_dead and s != GOAL_STATE:
-                        visual_children.append((child, True))  # Gạch bỏ ngay lập tức
+                        visual_children.append((child, True))
                         self.log(f"  [FORWARD CHECKING] Nhìn trước nhánh {a} thấy 100% ngõ cụt. Tỉa cành (Prune)!")
                     else:
                         visual_children.append((child, False))
@@ -1513,14 +1473,12 @@ class app_puzzle:
                 if s in path: continue
                 self.log(f"\n[OR_SEARCH] AI chọn hành động: {a}")
 
-                # Gọi AND_SEARCH để xử lý kết quả môi trường ném lại
                 res = and_search([s], path + [state], curr_node)
                 if res == "success": return "success"
 
             return "failure"
 
         def and_search(states, path, parent_node):
-            # Duyệt qua các trạng thái môi trường phản hồi (Với 8-puzzle luôn là 1 trạng thái)
             for s in states:
                 self.log(f"[AND_SEARCH] Môi trường phản hồi trạng thái: Node {self.get_name(s)}. Lập kế hoạch...")
                 res = or_search(s, path, parent_node)
@@ -1530,8 +1488,136 @@ class app_puzzle:
         or_search(START_STATE, [], None)
         return self.ao_goal, self.ao_popped, 1
 
+    # =========================================================================
+    # THUẬT TOÁN 17: AC-3 (Arc Consistency 3)
+    # Tương tự Forward Checking nhưng tập trung vào việc loại bỏ các Cung (Arc) vô ích
+    # =========================================================================
+    def algo_ac3(self):
+        self.ac3_goal = None
+        self.ac3_popped = 0
 
+        def backtrack_ac3(curr_state, path, parent_node):
+            if self.ac3_goal or self.ac3_popped > 3000: return
+            self.ac3_popped += 1
 
+            curr_node = Node(curr_state, parent_node, depth=len(path) - 1)
+            curr_node.name = self.get_name(curr_state)
+
+            if curr_state == GOAL_STATE:
+                self.ac3_goal = curr_node
+                self.add_history_block(curr_node, [], "ĐÍCH ĐẾN!\n(Dừng thuật toán)")
+                return
+
+            if len(path) > 15:
+                self.add_history_block(curr_node, [], "Quay lui\n(Quá sâu)")
+                return
+
+            neighbors = get_neighbors(curr_state)
+            visual_children = []
+            valid_children = []
+
+            for a, s in neighbors:
+                child = Node(s, curr_node, a, curr_node.depth + 1)
+                child.name = self.get_name(s)
+                if s in path:
+                    visual_children.append((child, True))
+                else:
+                    # Kỹ thuật AC-3: Kiểm tra tính nhất quán của Cung (curr_state, s)
+                    # Nếu từ 's' không thể sinh ra bất kỳ trạng thái nào hợp lệ, Cung này không nhất quán.
+                    is_consistent = False
+                    if s == GOAL_STATE:
+                        is_consistent = True
+                    else:
+                        future_neighbors = get_neighbors(s)
+                        for fa, fs in future_neighbors:
+                            if fs not in path and fs != curr_state:
+                                is_consistent = True
+                                break
+
+                    if not is_consistent:
+                        visual_children.append((child, True))
+                        self.log(
+                            f"  [AC-3] Phát hiện Cung ({curr_node.name} -> {child.name}) không nhất quán. Xóa nhánh {a}!")
+                    else:
+                        visual_children.append((child, False))
+                        valid_children.append((a, s))
+
+            self.add_history_block(curr_node, visual_children)
+
+            for a, s in valid_children:
+                path.append(s)
+                self.log(f"\n[DO] Đi theo Cung nhất quán {a} -> Node {self.get_name(s)}")
+                backtrack_ac3(s, path, curr_node)
+                if self.ac3_goal: return
+                popped_state = path.pop()
+                self.log(f"[UNDO] Rút lui khỏi {self.get_name(popped_state)}")
+
+        self.log("Khởi tạo AC-3: Quét và loại bỏ các cung (Arc) dẫn đến ngõ cụt.")
+        backtrack_ac3(START_STATE, [START_STATE], None)
+        return self.ac3_goal, self.ac3_popped, 1
+
+    # =========================================================================
+    # THUẬT TOÁN 18: MIN-CONFLICTS (Local Search)
+    # Liên tục chọn nhánh làm giảm "Xung đột" (Số ô sai vị trí) nhanh nhất
+    # =========================================================================
+    def algo_min_conflicts(self):
+        max_steps = 150  # Tránh lặp vô hạn
+        current_state = START_STATE
+
+        current_node = Node(current_state, node_id=1)
+        current_node.name = self.get_name(current_state)
+
+        counter = 2
+        popped = 0
+
+        self.log(f"Khởi tạo Min-Conflicts (Tối đa = {max_steps} bước)")
+
+        for i in range(1, max_steps + 1):
+            popped += 1
+            conflicts = self.calc_misplaced_tiles(current_state)
+            current_node.h_cost = conflicts
+            self.log(f"\nBước {i}: Xét Node {current_node.name} (Xung đột hiện tại: {conflicts})")
+
+            if current_state == GOAL_STATE:
+                self.add_history_block(current_node, [], "ĐÍCH ĐẾN!\n(Không còn xung đột)")
+                return current_node, popped, 1
+
+            neighbors = get_neighbors(current_state)
+            visual_children = []
+            best_neighbors = []
+            min_conflict_val = float('inf')
+
+            # Đánh giá xung đột của tất cả nhánh con
+            for a, s in neighbors:
+                child = Node(s, current_node, a, current_node.depth + 1, counter)
+                child.name = self.get_name(s)
+                child_conflicts = self.calc_misplaced_tiles(s)
+                child.h_cost = child_conflicts
+                counter += 1
+
+                visual_children.append((child, False))
+                self.log(f"  Thử {a} -> Node {child.name} có {child_conflicts} xung đột.")
+
+                # Lọc ra các nhánh làm giảm xung đột tốt nhất
+                if child_conflicts < min_conflict_val:
+                    min_conflict_val = child_conflicts
+                    best_neighbors = [(a, child)]
+                elif child_conflicts == min_conflict_val:
+                    best_neighbors.append((a, child))
+
+            self.add_history_block(current_node, visual_children)
+
+            # Chọn NGẪU NHIÊN một biến (hành động) trong tập làm giảm xung đột tốt nhất
+            chosen_action, chosen_node = random.choice(best_neighbors)
+            self.log(
+                f" => GÁN LẠI (Cập nhật): Chọn hành động {chosen_action} (Tối thiểu hóa xung đột về {min_conflict_val})")
+
+            current_state = chosen_node.state
+            current_node = chosen_node
+
+        self.log(
+            f"\n[THẤT BẠI] Đã chạm ngưỡng {max_steps} bước nhưng vẫn chưa giải quyết hết xung đột (Bị kẹt ở Cực tiểu cục bộ).")
+        return None, popped, 1
 
 
 if __name__ == "__main__":
